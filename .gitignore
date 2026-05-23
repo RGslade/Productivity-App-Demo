@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Expo and React Native
+.expo/
+dist/
+web-build/
+.metro-health-check*
+expo-env.d.ts
+
+# Local configuration and secrets
+.env
+.env.*
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+
+# Local tool/editor state
+.codeveloper/
+.vscode/
+.idea/
+
+# Local backend/schema snapshots
+database/
+
+# Build, cache, and test output
+build/
+coverage/
+.nyc_output/
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# Logs and diagnostics
+logs/
+*.log
+npm-debug.log*
+crash.txt
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+tmp/
+temp/

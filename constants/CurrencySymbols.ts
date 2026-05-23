@@ -1,0 +1,36 @@
+//
+export const DEFAULT_CURRENCY_SYMBOL = '£';
+
+//
+export const MAJOR_CURRENCY_SYMBOLS = [
+  { label: 'Pound Sterling (£)', value: '£' },
+  { label: 'US Dollar ($)', value: '$' },
+  { label: 'Euro (€)', value: '€' },
+  { label: 'Japanese Yen (¥)', value: '¥' },
+  { label: 'Indian Rupee (₹)', value: '₹' },
+  { label: 'Nigerian Naira (₦)', value: '₦' },
+  { label: 'South Korean Won (₩)', value: '₩' },
+  { label: 'Turkish Lira (₺)', value: '₺' },
+  { label: 'Russian Ruble (₽)', value: '₽' },
+  { label: 'Thai Baht (฿)', value: '฿' },
+  { label: 'Vietnamese Dong (₫)', value: '₫' },
+  { label: 'Philippine Peso (₱)', value: '₱' },
+  { label: 'Israeli Shekel (₪)', value: '₪' },
+  { label: 'Brazilian Real (R$)', value: 'R$' },
+  { label: 'Canadian Dollar (C$)', value: 'C$' },
+  { label: 'Australian Dollar (A$)', value: 'A$' },
+  { label: 'New Zealand Dollar (NZ$)', value: 'NZ$' },
+  { label: 'Singapore Dollar (S$)', value: 'S$' },
+  { label: 'Hong Kong Dollar (HK$)', value: 'HK$' },
+  { label: 'Mexican Peso (Mex$)', value: 'Mex$' },
+  { label: 'Swiss Franc (Fr)', value: 'Fr' },
+  { label: 'Danish Krone (kr)', value: 'kr' },
+  { label: 'Norwegian Krone (kr)', value: 'kr' },
+  { label: 'Swedish Krona (kr)', value: 'kr' },
+  { label: 'Polish Zloty (zł)', value: 'zł' },
+  { label: 'Czech Koruna (Kč)', value: 'Kč' },
+  { label: 'South African Rand (R)', value: 'R' },
+  { label: 'UAE Dirham (د.إ)', value: 'د.إ' },
+  { label: 'Saudi Riyal (ر.س)', value: 'ر.س' },
+  { label: 'Qatari Riyal (ر.ق)', value: 'ر.ق' },
+] as const;
