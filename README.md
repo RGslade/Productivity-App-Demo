@@ -16,7 +16,7 @@ The app references Supabase as the backend provider for auth and persistence. Pr
 - Helpful links and curated news
 - AI-assisted planning workflow
 - Subscription and token-based purchase flows
-- Ads, theming, notifications, and app update gating
+- Ads (Google Admob), theming, notifications, and app update gating
 
 ## Architecture
 
@@ -36,20 +36,6 @@ The app references Supabase as the backend provider for auth and persistence. Pr
 - Supabase client library
 - RevenueCat purchases
 - Google Mobile Ads
-
-## Environment
-
-Create a local `.env.local` for any runtime values needed during development. Do not commit `.env`, `.env.local`, provider API keys, signing keys, or production service credentials.
-
-## Development
-
-```bash
-npm install
-npm run start
-npm run android
-npm run ios
-npm run lint
-```
 
 ## Release Checklist
 
