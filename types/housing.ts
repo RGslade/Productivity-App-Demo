@@ -1,6 +1,5 @@
 import { LocationData } from '@/types/job';
 
-//
 export interface HousingListing {
   id: string;
   title: string;
@@ -14,7 +13,6 @@ export interface HousingListing {
   source: 'zoopla';
 }
 
-//
 export interface HousingSearchParams {
   query?: string;
   location: LocationData;
@@ -26,7 +24,6 @@ export interface HousingSearchParams {
   listingStatus?: 'for-sale' | 'to-rent';
 }
 
-//
 export interface HousingSearchError {
   message: string;
   code: 'LOCATION_ERROR' | 'API_ERROR' | 'VALIDATION_ERROR' | 'PERMISSION_ERROR';

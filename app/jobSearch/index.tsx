@@ -21,27 +21,19 @@ import { Colours } from '@/constants/Colours';
 import { Picker } from '@react-native-picker/picker';
 import PageNotReadyOverlay from '@/components/pageNotReadyOverlay';
 
-//
 const UNIVERSAL_CREDIT_MAX_DISTANCE = 10; // miles
-//
 const UNIVERSAL_CREDIT_MAX_TRAVEL_TIME = 90; // minutes
 
-//
 interface JobCardProps {
   job: Job;
   onPress?: () => void;
 }
 
-//
 const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
-  //
   const router = useRouter();
-  //
   const textColor = useThemeColour({}, 'text');
 
-  //
   const handlePress = () => {
-    //
     if (onPress) {
       onPress();
     } else if (job.id) {
@@ -49,7 +41,6 @@ const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
     }
   };
 
-  //
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.jobCard}>
@@ -108,21 +99,15 @@ const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
   );
 };
 
-//
 export default function JobSearchScreen() {
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const borderColor = useThemeColour({}, 'border');
 
   // Auth and user info
-  //
   const { userInfo } = useAuth();
 
   // Job search state
-  //
   const { jobs, isSearching, error, searchJobs, resetSearch } = useJobs();
-  //
   const {
     location,
     isLoadingLocation,
@@ -133,24 +118,16 @@ export default function JobSearchScreen() {
   } = useLocationHandler();
 
   // Form state
-  //
   const [searchTerm, setSearchTerm] = useState('');
-  //
   const [postcodeInput, setPostcodeInput] = useState('');
-  //
   const [useDeviceLocation, setUseDeviceLocation] = useState(false);
-  //
   const [selectedDistance, setSelectedDistance] = useState<number>(5);
-  //
   const [hasAttemptedSearch, setHasAttemptedSearch] = useState(false);
 
-  //
   const isUniversalCredit = userInfo?.universal_credit || false;
-  //
   const maxDistance = isUniversalCredit ? UNIVERSAL_CREDIT_MAX_DISTANCE : undefined;
 
   // Distance options based on UC status
-  //
   const distanceOptions = isUniversalCredit 
     ? [
         { label: '5 miles', value: 5 },
@@ -170,9 +147,7 @@ export default function JobSearchScreen() {
    * Handle GPS location request
    */
   const handleRequestLocation = async () => {
-    //
     const result = await requestLocationPermission();
-    //
     if (result) {
       setUseDeviceLocation(true);
       setPostcodeInput('');
@@ -183,14 +158,11 @@ export default function JobSearchScreen() {
    * Handle postcode lookup
    */
   const handlePostcodeLookup = async () => {
-    //
     if (!postcodeInput.trim()) {
       Alert.alert('Error', 'Please enter a postcode');
       return;
     }
-    //
     const result = await getLocationFromPostcode(postcodeInput);
-    //
     if (result) {
       setUseDeviceLocation(false);
     }
@@ -201,13 +173,11 @@ export default function JobSearchScreen() {
    */
   const handleSearch = async () => {
     // Validation
-    //
     if (!searchTerm.trim()) {
       Alert.alert('Error', 'Please enter a job description or keyword');
       return;
     }
 
-    //
     if (!location) {
       Alert.alert('Error', 'Please provide a location (GPS or postcode)');
       return;
@@ -216,9 +186,7 @@ export default function JobSearchScreen() {
     Keyboard.dismiss();
     setHasAttemptedSearch(true);
 
-    //
     try {
-      //
       const searchParams: JobSearchParams = {
         description: searchTerm,
         location,
@@ -245,9 +213,7 @@ export default function JobSearchScreen() {
    * Render error message
    */
   const renderErrorMessage = () => {
-    //
     if (locationError) {
-      //
       return (
         <View style={[styles.errorContainer, { borderColor }]}>
         <Ionicons name="alert-circle-outline" size={20} color={Colours.light.danger} />
@@ -261,9 +227,7 @@ export default function JobSearchScreen() {
       );
     }
 
-    //
     if (error) {
-      //
       return (
         <View style={[styles.errorContainer, { borderColor }]}>
         <Ionicons name="alert-circle-outline" size={20} color={Colours.light.danger} />
@@ -284,9 +248,7 @@ export default function JobSearchScreen() {
    * Render location display
    */
   const renderLocationDisplay = () => {
-    //
     if (!location) return null;
-    //
     return (
       <Card style={styles.locationCard}>
         <View style={styles.locationInfo}>
@@ -309,10 +271,8 @@ export default function JobSearchScreen() {
    * Render universal credit warning
    */
   const renderUCWarning = () => {
-    //
     if (!isUniversalCredit) return null;
 
-    //
     return (
       <View style={[styles.ucWarningContainer, { borderColor }]}>
         <Ionicons name="information-circle-outline" size={20} color={Colours.light.warning} />
@@ -323,7 +283,6 @@ export default function JobSearchScreen() {
     );
   };
 
-  //
   return (
     <ThemedView style={styles.container}>
       <ScrollView
@@ -501,7 +460,6 @@ export default function JobSearchScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

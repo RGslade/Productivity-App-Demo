@@ -13,49 +13,28 @@ import { showAlert } from '@/hooks/dataHandler';
 import {tempNotesStore} from '@/services/tempNotesStore';
 
 /** Renders note editing with optional title-edit mode and content editor. */
-//
 export default function EditNoteScreen() {
-  //
   const { id, temp } = useLocalSearchParams<{ id: string; temp?: string }>();
-  //
   const isTemporary = temp === '1';
-  //
   const noteId = isTemporary ? 0 : Number(id);
-  //
   const { data: note, isLoading } = useNote(noteId);
-  //
   const { updateNote, isUpdating } = useNotes();
-  //
   const { defaultFont } = useSettings();
-  //
   const backgroundColor = useThemeColour({}, 'background');
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const inputBackground = useThemeColour({}, 'inputBackground');
-  //
   const inputBorder = useThemeColour({}, 'inputBorder');
-  //
   const inputPlaceholder = useThemeColour({}, 'inputPlaceholder');
 
-  //
   const [title, setTitle] = useState('');
-  //
   const [originalTitle, setOriginalTitle] = useState('');
-  //
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  //
   const [content, setContent] = useState('');
-  //
   const [originalContent, setOriginalContent] = useState('');
 
-  //
   useEffect(() => {
-    //
     if (!isTemporary && note) {
-      //
       const initialTitle = note.title || 'Untitled note';
-      //
       const initial = note.content || '';
       setTitle(initialTitle);
       setOriginalTitle(initialTitle);
@@ -64,24 +43,17 @@ export default function EditNoteScreen() {
     }
   }, [isTemporary, note]);
 
-  //
   useEffect(() => {
-    //
     if (isTemporary || isLoading) return;
-    //
     if (note === null) {
       showAlert('Note Not Found', 'This note is no longer available.');
       router.back();
     }
   }, [isLoading, isTemporary, note]);
 
-  //
   useEffect(() => {
-    //
     if (!isTemporary) return;
-    //
     const tempNote = tempNotesStore.getById(id);
-    //
     if (!tempNote) {
       showAlert('Note Not Found', 'This temporary note is no longer available.');
       router.back();
@@ -93,29 +65,21 @@ export default function EditNoteScreen() {
     setOriginalContent(tempNote.content || '');
   }, [id, isTemporary]);
 
-  //
   const hasChanges = useMemo(() => title !== originalTitle || content !== originalContent, [title, originalTitle, content, originalContent]);
-  //
   const hasTitle = useMemo(() => title.trim().length > 0, [title]);
-  //
   const hasContent = useMemo(() => content.trim().length > 0, [content]);
 
   /** Saves note title/content changes for persistent or temporary notes. */
-  //
   const handleSave = async () => {
-    //
     if (!hasTitle) {
       showAlert('Missing Title', 'Please enter a title before saving.');
       return;
     }
-    //
     if (!hasContent) {
       showAlert('Empty Note', 'Please add some content before saving.');
       return;
     }
-    //
     try {
-      //
       if (isTemporary) {
         tempNotesStore.update(id, { title: title.trim(), content });
       } else {
@@ -129,9 +93,7 @@ export default function EditNoteScreen() {
   };
 
   /** Cancels editing and confirms discard when the note has unsaved changes. */
-  //
   const handleCancel = () => {
-    //
     if (!hasChanges) {
       router.back();
       return;
@@ -142,9 +104,7 @@ export default function EditNoteScreen() {
     ]);
   };
 
-  //
   if (!isTemporary && isLoading) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
@@ -152,7 +112,6 @@ export default function EditNoteScreen() {
     );
   }
 
-  //
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
@@ -195,7 +154,6 @@ export default function EditNoteScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -30,7 +30,6 @@ export default function EditEducationGradeScreen() {
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
 
-  //
   useEffect(() => {
     if (!grade) return;
     setSubject(grade.subject || '');
@@ -48,13 +47,11 @@ export default function EditEducationGradeScreen() {
     }
   }, [grade]);
 
-  //
   const availableGrades = useMemo(() => {
     if (qualificationType === 'Other') return [];
     return EDUCATION_GRADES[qualificationType];
   }, [qualificationType]);
 
-  //
   const handleSave = async () => {
     const trimmedSubject = subject.trim();
     const gradeValue = qualificationType === 'Other' ? otherGrade.trim() : selectedGrade;
@@ -85,7 +82,6 @@ export default function EditEducationGradeScreen() {
     }
   };
 
-  //
   const handleDelete = () => {
     Alert.alert('Delete grade', 'Are you sure you want to delete this grade?', [
       { text: 'Cancel', style: 'cancel' }, {text: 'Delete', style: 'destructive', onPress: async () => {
@@ -101,7 +97,6 @@ export default function EditEducationGradeScreen() {
     ]);
   };
 
-  //
   if (isLoading || !grade) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -110,7 +105,6 @@ export default function EditEducationGradeScreen() {
     );
   }
 
-  //
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Card style={[styles.card, { backgroundColor: cardBackground }]}> 

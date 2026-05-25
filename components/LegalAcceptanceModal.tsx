@@ -6,10 +6,8 @@ import { Card } from '@/components/ui/Card';
 import { Switch } from '@/components/ui/Switch';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 export type LegalDocumentKey = 'terms' | 'privacy' | 'lifenest';
 
-//
 type ExternalLegalDocument = {
   key: LegalDocumentKey;
   shortTitle: string;
@@ -17,7 +15,6 @@ type ExternalLegalDocument = {
   url: string;
 };
 
-//
 type LegalAcceptanceModalProps = {
   visible: boolean;
   loading?: boolean;
@@ -25,7 +22,6 @@ type LegalAcceptanceModalProps = {
   onAccept: () => Promise<void> | void;
 };
 
-//
 const REQUIRED_ACCEPTANCE_LINKS: ExternalLegalDocument[] = [
   {
     key: 'terms',
@@ -48,25 +44,19 @@ const REQUIRED_ACCEPTANCE_LINKS: ExternalLegalDocument[] = [
 ];
 
 /** Collects mandatory legal confirmations after authentication without returning users to onboarding. */
-//
 export function LegalAcceptanceModal({ visible, loading = false, versions, onAccept }: LegalAcceptanceModalProps) {
-  //
   const [accepted, setAccepted] = useState<Record<LegalDocumentKey, boolean>>({
     terms: false,
     privacy: false,
     lifenest: false,
   });
-  //
   const linkColor = useThemeColour({}, 'primary');
-  //
   const canContinue = useMemo(() => REQUIRED_ACCEPTANCE_LINKS.every((document) => accepted[document.key]), [accepted]);
 
-  //
   const openDocument = async (url: string) => {
     await Linking.openURL(url);
   };
 
-  //
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
@@ -103,7 +93,6 @@ export function LegalAcceptanceModal({ visible, loading = false, versions, onAcc
   );
 }
 
-//
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,

@@ -1,7 +1,5 @@
-//
 export const REVENUECAT_ENTITLEMENT_ID = "Productivity Mobile App Pro";
 
-//
 export const REVENUECAT_PRODUCT_IDS = {
   monthly: "monthly",
   yearly: "yearly",
@@ -17,7 +15,6 @@ export const REVENUECAT_PRODUCT_IDS = {
   googlePlayYearly: "pro_yearly:p1y",
 } as const;
 
-//
 export const REVENUECAT_DEV_PREFERRED_PRODUCT_IDS = {
   monthly: REVENUECAT_PRODUCT_IDS.testMonthlyMay2026,
   yearly: REVENUECAT_PRODUCT_IDS.testYearlyMay2026,
@@ -27,7 +24,6 @@ export const REVENUECAT_DEV_PREFERRED_PRODUCT_IDS = {
   lifeNestTokens1000: REVENUECAT_PRODUCT_IDS.lifeNestTokens1000,
 } as const;
 
-//
 export const REVENUECAT_ANDROID_LIVE_PREFERRED_PRODUCT_IDS = {
   monthly: REVENUECAT_PRODUCT_IDS.googlePlayMonthly,
   yearly: REVENUECAT_PRODUCT_IDS.googlePlayYearly,
@@ -37,11 +33,9 @@ export const REVENUECAT_ANDROID_LIVE_PREFERRED_PRODUCT_IDS = {
   lifeNestTokens1000: REVENUECAT_PRODUCT_IDS.lifeNestTokens1000,
 } as const;
 
-//
 export type RevenueCatProductId =
   (typeof REVENUECAT_PRODUCT_IDS)[keyof typeof REVENUECAT_PRODUCT_IDS];
 
-//
 export const REVENUECAT_PRODUCT_LABELS: Record<RevenueCatProductId, string> = {
   monthly: "Monthly",
   yearly: "Yearly",
@@ -57,38 +51,32 @@ export const REVENUECAT_PRODUCT_LABELS: Record<RevenueCatProductId, string> = {
   "pro_yearly:p1y": "Yearly",
 };
 
-//
 export const MONTHLY_PRODUCT_IDENTIFIERS = [
   REVENUECAT_PRODUCT_IDS.monthly,
   REVENUECAT_PRODUCT_IDS.testMonthlyMay2026,
   REVENUECAT_PRODUCT_IDS.googlePlayMonthly,
 ] as const;
 
-//
 export const YEARLY_PRODUCT_IDENTIFIERS = [
   REVENUECAT_PRODUCT_IDS.yearly,
   REVENUECAT_PRODUCT_IDS.testYearlyMay2026,
   REVENUECAT_PRODUCT_IDS.googlePlayYearly,
 ] as const;
 
-//
 export const REMOVE_ADS_PRODUCT_IDENTIFIERS = [
   REVENUECAT_PRODUCT_IDS.removeAds,
   REVENUECAT_PRODUCT_IDS.removeAdsTest,
 ] as const;
 
-//
 export const LIFENEST_TOKEN_100_PRODUCT_IDENTIFIERS = [
   REVENUECAT_PRODUCT_IDS.lifeNestTokens100,
 ] as const;
 
-//
 export const LIFENEST_TOKEN_500_PRODUCT_IDENTIFIERS = [
   REVENUECAT_PRODUCT_IDS.lifeNestTokens500,
   REVENUECAT_PRODUCT_IDS.googlePlayLifeNestTokens500,
 ] as const;
 
-//
 export const LIFENEST_TOKEN_1000_PRODUCT_IDENTIFIERS = [
   REVENUECAT_PRODUCT_IDS.lifeNestTokens1000,
 ] as const;

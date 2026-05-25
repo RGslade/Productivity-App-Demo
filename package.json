@@ -2,12 +2,11 @@
   "name": "productivity-mobile-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "scripts": {
+   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
     "lint": "expo lint",
-    "build": "eas build --platform all",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --watchAll=false",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios"
   },

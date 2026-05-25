@@ -7,10 +7,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import jobService from '@/services/jobService';
 import { Job, JobSearchParams, JobSearchError } from '@/types/job';
 
-//
 export function useJobs() {
   // Mutation for searching jobs
-  //
   const searchMutation = useMutation<Job[], JobSearchError, JobSearchParams>({
     mutationFn: (params: JobSearchParams) => jobService.searchJobs(params),
     onError: (error) => {

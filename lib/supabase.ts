@@ -2,18 +2,14 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-//
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-//
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-//
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Backend environment configuration is missing.');
   throw new Error('BACKEND_ENV_MISSING');
 }
 
-//
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
@@ -24,9 +20,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Helper to get current user
-//
 export async function getCurrentUser() {
-  //
   try {
     return supabase.auth.getUser();
   } catch (error) {
@@ -36,11 +30,8 @@ export async function getCurrentUser() {
 };
 
 // Helper to get session
-//
 export async function getSession() {
-  //
   try {
-    //
     const user = await supabase.auth.getSession();
     //if (!user?.data.session?.user?.email) throw new Error('Not authenticated');
     return user;
@@ -50,9 +41,7 @@ export async function getSession() {
   }
 };
 
-//
 export async function refreshSession() {
-  //
   try {
     await supabase.auth.refreshSession();
   } catch (error) {

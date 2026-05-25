@@ -14,60 +14,39 @@ import { useThemeColour } from '@/hooks/useThemeColour';
 import { useSettings } from '@/hooks/useSettings';
 import { formatDate, showAlert } from '@/hooks/dataHandler';
 
-//
 type NotesFilter = 'all' | 'saved' | 'temporary';
-//
 type NotesSort = 'updated' | 'newest' | 'oldest';
 
-//
 const getTitle = (title: string) => {
-  //
   const cleaned = title.trim();
-  //
   if (!cleaned) return 'Untitled note';
   return cleaned.length > 60 ? `${cleaned.slice(0, 60)}...` : cleaned;
 };
 
-//
 const getPreview = (content: string) => {
-  //
   const cleaned = content.replace(/\s+/g, ' ').trim();
-  //
   if (!cleaned) return 'No content yet.';
   return cleaned.length > 120 ? `${cleaned.slice(0, 120)}...` : cleaned;
 };
 
-//
 export default function NotesScreen() {
-  //
   const [refreshing, setRefreshing] = useState(false);
-  //
   const [filter, setFilter] = useState<NotesFilter>('all');
-  //
   const [sortBy, setSortBy] = useState<NotesSort>('updated');
-  //
   const [tempNotes, setTempNotes] = useState<TempNote[]>(tempNotesStore.getAll());
-  //
   const { notes, loading, fetchNotes, deleteNote } = useNotes();
-  //
   const { defaultFont } = useSettings();
-  //
   const backgroundColor = useThemeColour({}, 'background');
-  //
   const isFocused = useIsFocused();
 
-  //
   useEffect(() => {
-    //
     if (!isFocused) return;
     fetchNotes();
     setTempNotes(tempNotesStore.getAll());
   }, [fetchNotes, isFocused]);
 
-  //
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    //
     try {
       await fetchNotes();
       setTempNotes(tempNotesStore.getAll());
@@ -76,11 +55,8 @@ export default function NotesScreen() {
     }
   }, [fetchNotes]);
 
-  //
   const handleDelete = (note: NotesListItem) => {
-    //
     const label = note.isTemporary ? 'Delete Temporary Note' : 'Delete Note';
-    //
     const message = note.isTemporary
       ? 'This temporary note will be removed and cannot be recovered.'
       : 'This note will be deleted and cannot be recovered.';
@@ -90,13 +66,11 @@ export default function NotesScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          //
           if (note.isTemporary) {
             tempNotesStore.remove(note.id as string);
             setTempNotes(tempNotesStore.getAll());
             return;
           }
-          //
           try {
             await deleteNote(note.id as number);
           } catch (error) {
@@ -107,9 +81,7 @@ export default function NotesScreen() {
     ]);
   };
 
-  //
   const noteItems = useMemo(() => {
-    //
     const savedItems: NotesListItem[] = notes.map(note => ({
       id: note.id,
       title: note.title || '',
@@ -118,7 +90,6 @@ export default function NotesScreen() {
       updated_at: note.updated_at,
       isTemporary: false,
     }));
-    //
     const tempItems: NotesListItem[] = tempNotes.map(note => ({
       id: note.id,
       title: note.title || '',
@@ -127,11 +98,8 @@ export default function NotesScreen() {
       updated_at: note.updated_at,
       isTemporary: true,
     }));
-    //
     let combined = [...savedItems, ...tempItems];
-    //
     if (filter === 'saved') combined = combined.filter(note => !note.isTemporary);
-    //
     if (filter === 'temporary') combined = combined.filter(note => note.isTemporary);
     return combined.sort((a, b) => {
       switch (sortBy) {
@@ -146,9 +114,7 @@ export default function NotesScreen() {
     });
   }, [filter, notes, sortBy, tempNotes]);
 
-  //
   if (loading && notes.length === 0) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
@@ -156,7 +122,6 @@ export default function NotesScreen() {
     );
   }
 
-  //
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
@@ -242,7 +207,6 @@ export default function NotesScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

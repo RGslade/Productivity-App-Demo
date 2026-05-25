@@ -12,7 +12,6 @@ import { useThemeColour } from '@/hooks/useThemeColour';
 import { showGlobalInterstitialAd } from '@/components/AdDisplay';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 
-//
 export default function DocumentsScreen() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);

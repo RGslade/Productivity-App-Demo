@@ -12,50 +12,32 @@ import { showAlert } from '@/hooks/dataHandler';
 import {tempNotesStore} from '@/services/tempNotesStore';
 
 /** Renders note creation with explicit title and content inputs. */
-//
 export default function AddNoteScreen() {
-  //
   const [title, setTitle] = useState('');
-  //
   const [content, setContent] = useState('');
-  //
   const [isTemporary, setIsTemporary] = useState(false);
-  //
   const { createNote, isCreating } = useNotes();
-  //
   const { defaultFont } = useSettings();
-  //
   const backgroundColor = useThemeColour({}, 'background');
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const inputBackground = useThemeColour({}, 'inputBackground');
-  //
   const inputBorder = useThemeColour({}, 'inputBorder');
-  //
   const inputPlaceholder = useThemeColour({}, 'inputPlaceholder');
 
-  //
   const hasTitle = useMemo(() => title.trim().length > 0, [title]);
-  //
   const hasContent = useMemo(() => content.trim().length > 0, [content]);
 
   /** Saves the note as temporary or persistent based on the current toggle state. */
-  //
   const handleSave = async () => {
-    //
     if (!hasTitle) {
       showAlert('Missing Title', 'Please enter a title before saving.');
       return;
     }
-    //
     if (!hasContent) {
       showAlert('Empty Note', 'Please add some content before saving.');
       return;
     }
-    //
     try {
-      //
       if (isTemporary) {
         tempNotesStore.add(title.trim(), content);
       } else {
@@ -69,9 +51,7 @@ export default function AddNoteScreen() {
   };
 
   /** Cancels note creation and confirms discard when the form has changes. */
-  //
   const handleCancel = () => {
-    //
     if (!hasTitle && !hasContent) {
       router.back();
       return;
@@ -82,12 +62,9 @@ export default function AddNoteScreen() {
     ]);
   };
 
-  //
   const temporaryLabel = isTemporary ? 'Temp On' : 'Temp Off';
-  //
   const temporaryVariant = isTemporary ? 'warning' : 'secondary';
 
-  //
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
@@ -124,7 +101,6 @@ export default function AddNoteScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

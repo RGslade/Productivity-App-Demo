@@ -15,7 +15,6 @@ import { lifeNestService } from '@/services/lifeNestService';
 import { showTokenUsageToast } from '@/services/tokenToastService';
 import { CreateToDoRequest, ToDoItemKind, ToDoTypes } from '@/types/todo';
 
-//
 const CHECKLIST_PRESETS = [
   {
     title: 'Moving out for the first time',
@@ -31,98 +30,65 @@ const CHECKLIST_PRESETS = [
   },
 ];
 
-//
 type DraftChecklistItem = {
   id: string;
   text: string;
 };
 
 /** Renders the add flow for either a task or a checklist. */
-//
 export default function AddTodoScreen() {
-  //
   const [itemKind, setItemKind] = useState<ToDoItemKind>('task');
-  //
   const [title, setTitle] = useState('');
-  //
   const [description, setDescription] = useState('');
-  //
   const [unit, setUnit] = useState('');
-  //
   const [categoryId, setCategoryId] = useState<number | null>(null);
-  //
   const [premiumCategoryId, setPremiumCategoryId] = useState<number | null>(null);
-  //
   const [dueDate, setDueDate] = useState<Date | null>(null);
-  //
   const [showDatePicker, setShowDatePicker] = useState(false);
-  //
   const [loading, setLoading] = useState(false);
-  //
   const [remindMe, setRemindMe] = useState(false);
-  //
   const [selected, setSelected] = useState(ToDoTypes[0]);
-  //
   const [newChecklistItem, setNewChecklistItem] = useState('');
-  //
   const [checklistItems, setChecklistItems] = useState<DraftChecklistItem[]>([]);
-  //
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
-  //
   const [aiLoading, setAiLoading] = useState(false);
-  //
   const [aiUsed, setAiUsed] = useState(false);
-  //
   const nextChecklistItemId = useRef(0);
-  //
   const { categories, premiumCategories, createTodo, fetchCategories } = useTodos();
-  //
   const { userInfo } = useAuth();
 
-  //
   const createDraftChecklistItem = (text: string): DraftChecklistItem => ({
     id: `draft-checklist-item-${nextChecklistItemId.current++}`,
     text,
   });
 
-  //
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  //
   useEffect(() => {
-    //
     let active = true;
     lifeNestService.getCurrentMonthlyUsageSummary()
       .then((summary) => {
-        //
         if (active) setTokenBalance(summary.totalTokensRemaining);
       })
       .catch(() => {
-        //
         if (active) setTokenBalance(0);
       });
-    //
     return () => { active = false; };
   }, []);
 
-  //
   const handleAddChecklistItem = () => {
-    //
     const item = newChecklistItem.trim();
-    //
     if (!item) return;
     setChecklistItems((current) => [...current, createDraftChecklistItem(item)]);
     setNewChecklistItem('');
   };
 
-  //
   const updateChecklistItem = (id: string, value: string) => {
     setChecklistItems((current) => current.map((item) => (item.id === id ? { ...item, text: value } : item)));
   };
 
-  //
   const applyPreset = (preset: typeof CHECKLIST_PRESETS[number]) => {
     setItemKind('checklist');
     setTitle(preset.title);
@@ -130,9 +96,7 @@ export default function AddTodoScreen() {
     setNewChecklistItem('');
   };
 
-  //
   const runChecklistAI = async () => {
-    //
     if (aiUsed) {
       Alert.alert('Use another token?', 'Are you sure you would like to use Enhance/Complete again?', [
         { text: 'Cancel', style: 'cancel' },
@@ -143,19 +107,15 @@ export default function AddTodoScreen() {
     await enhanceChecklist();
   };
 
-  //
   const enhanceChecklist = async () => {
     setItemKind('checklist');
     setAiLoading(true);
-    //
     try {
-      //
       const generated = await lifeNestService.generateChecklist(title, [...checklistItems.map((item) => item.text), newChecklistItem].filter((item) => item.trim()));
       setTitle(generated.title);
       setChecklistItems(generated.items.map(createDraftChecklistItem));
       setNewChecklistItem('');
       setAiUsed(true);
-      //
       if (generated.usage) {
         showTokenUsageToast(generated.usage.tokensUsed);
         setTokenBalance((current) => (current === null ? current : Math.max(current - generated.usage!.tokensUsed, 0)));
@@ -168,25 +128,19 @@ export default function AddTodoScreen() {
     }
   };
 
-  //
   const handleSave = async () => {
-    //
     if (!title.trim()) {
       Alert.alert('Error', `Please enter a title for the ${itemKind}`);
       return;
     }
 
-    //
     if (itemKind === 'checklist') {
-      //
       const trimmedItems = checklistItems.map((item) => item.text.trim()).filter(Boolean);
-      //
       if (trimmedItems.length === 0) {
         Alert.alert('Error', 'Please add at least one checklist item');
         return;
       }
       setLoading(true);
-      //
       try {
         await createTodo({
           title: title.trim(),
@@ -207,34 +161,28 @@ export default function AddTodoScreen() {
       return;
     }
 
-    //
     if (!dueDate) {
       Alert.alert('Error', 'Please select a due date');
       return;
     }
 
-    //
     if (!description.trim()) {
       Alert.alert('Error', 'Please enter a description for the task');
       return;
     }
 
-    //
     if (!unit.trim() && (selected === 'Numerical' || selected === 'Percentage')) {
       Alert.alert('Error', 'Please enter a unit for the task');
       return;
     }
 
-    //
     if (!categoryId) {
       Alert.alert('Error', 'Please select a category');
       return;
     }
     setLoading(true);
 
-    //
     try {
-      //
       const todoData: CreateToDoRequest = {
         title: title.trim(),
         description: description.trim(),
@@ -256,21 +204,17 @@ export default function AddTodoScreen() {
     }
   };
 
-  //
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
-    //
     if (selectedDate) {
       setDueDate(selectedDate);
     }
   };
 
-  //
   const clearDate = () => {
     setDueDate(null);
   };
 
-  //
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContainer}>
@@ -360,7 +304,6 @@ export default function AddTodoScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },

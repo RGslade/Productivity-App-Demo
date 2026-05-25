@@ -1,7 +1,6 @@
 // Import User type for navigation property
 import type { UserInfo } from './user';
 
-//
 export interface Transaction {
   id: number; // bigint in DB
   title: string;
@@ -18,7 +17,6 @@ export interface Transaction {
   user?: UserInfo;
 }
 
-//
 export interface TransactionCategory {
   id: number;
   name: string;
@@ -27,7 +25,6 @@ export interface TransactionCategory {
   updated_at?: string;
 }
 
-//
 export interface CreateTransactionRequest {
   title: string;
   description?: string;
@@ -38,7 +35,6 @@ export interface CreateTransactionRequest {
   //month: number;
 }
 
-//
 export interface UpdateTransactionRequest {
   title: string;
   description?: string;
@@ -50,13 +46,11 @@ export interface UpdateTransactionRequest {
 }
 
 // Transaction type enum - matching your database values
-//
 export enum TransactionType {
   Income = 'Income',
   Expense = 'Expense'
 }
 
-//
 export interface TransactionStats {
   totalIncome: number;
   totalExpenses: number;
@@ -64,7 +58,6 @@ export interface TransactionStats {
   transactionCount: number;
 }
 
-//
 export interface FinancialSummary {
   currentMonth: TransactionStats;
   yearToDate: TransactionStats;

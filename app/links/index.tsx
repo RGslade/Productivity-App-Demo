@@ -9,7 +9,6 @@ import { HelpfulLink, getHelpfulLinksForCountry } from '@/types/links';
 import { copyToClipboard, getCurrentCountryCodeFromLocale } from '@/hooks/dataHandler';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 const CATEGORY_ORDER = [
   'Emergency',
   'Government',
@@ -24,23 +23,17 @@ const CATEGORY_ORDER = [
 ];
 
 /** Returns a stable category rank so all regional link sets read in a practical order. */
-//
 const getCategoryRank = (category: string) => {
-  //
   const categoryIndex = CATEGORY_ORDER.indexOf(category);
   return categoryIndex === -1 ? CATEGORY_ORDER.length : categoryIndex;
 };
 
 /** Sorts regional links by practical category first, then priority and title. */
-//
 const sortHelpfulLinks = (links: HelpfulLink[]) =>
   [...links].sort((a, b) => {
-    //
     const categoryDifference = getCategoryRank(a.category) - getCategoryRank(b.category);
-    //
     if (categoryDifference !== 0) return categoryDifference;
 
-    //
     if (a.priority !== b.priority) {
       return b.priority - a.priority;
     }
@@ -48,44 +41,30 @@ const sortHelpfulLinks = (links: HelpfulLink[]) =>
     return a.title.localeCompare(b.title);
   });
 
-//
 export default function LinksScreen() {
-  //
   const [links, setLinks] = useState<HelpfulLink[]>([]);
-  //
   const [loading, setLoading] = useState(true);
-  //
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  //
   const [countryCode, setCountryCode] = useState<string | null>(null);
-  //
   const backgroundColour = useThemeColour({}, 'background');
-  //
   const textColour = useThemeColour({}, 'text');
-  //
   const cardBackgroundColour = useThemeColour({}, 'cardBackground');
-  //
   const locationAwareLinkIds = new Set([
     'gov-uk-council',
     'gov-uk-book-theory-test',
     'gov-uk-book-driving-test',
   ]);
 
-  //
   useEffect(() => {
     setCountryCode(getCurrentCountryCodeFromLocale());
     loadLinks();
   }, []);
 
-  //
   const loadLinks = async () => {
-    //
     try {
       setLoading(true);
-      //
       const detectedCountryCode = getCurrentCountryCodeFromLocale();
       setCountryCode(detectedCountryCode);
-      //
       const regionSpecificLinks = getHelpfulLinksForCountry(detectedCountryCode);
 
       setLinks(sortHelpfulLinks(regionSpecificLinks));
@@ -93,22 +72,16 @@ export default function LinksScreen() {
       setLoading(false);
     }
   };
-  //
   const isRegionSupported = countryCode ? getHelpfulLinksForCountry(countryCode).length > 0 : false;
 
-  //
   const categories = ['All', ...Array.from(new Set(links.map(link => link.category))).sort((a, b) => {
-    //
     const categoryDifference = getCategoryRank(a) - getCategoryRank(b);
     return categoryDifference !== 0 ? categoryDifference : a.localeCompare(b);
   })];
-  //
   const filteredLinks = selectedCategory === 'All' ? links : links.filter(link => link.category === selectedCategory);
 
   /** Copies emergency phone numbers instead of opening the dialler. */
-  //
   const handleEmergencyPhoneLink = (link: HelpfulLink) => {
-    //
     const phoneNumber = link.url.replace('tel:', '');
     copyToClipboard(phoneNumber);
     Alert.alert(
@@ -117,33 +90,23 @@ export default function LinksScreen() {
     );
   };
 
-  //
   const handleLinkPress = async (link: HelpfulLink) => {
-    //
     try {
-      //
       if (link.url.startsWith('tel:')) {
-        //
         if (link.category === 'Emergency') {
           handleEmergencyPhoneLink(link);
           return;
         }
 
         // Handle phone number links
-        //
         const phoneNumber = link.url.replace('tel:', '');
         Alert.alert('Call ' + phoneNumber, `Would you like to call ${link.title}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Call', onPress: () => Linking.openURL(link.url) }]);
       } else {
         // Handle web links
-        //
         const supported = await Linking.canOpenURL(link.url);
-        //
         if (supported) {
-          //
           if (locationAwareLinkIds.has(link.id)) {
-            //
             const postcode = await LocationService.PostCode();
-            //
             if (postcode) {
               copyToClipboard(postcode);
               Alert.alert('Postcode copied', 'Your postcode has been copied to your clipboard for faster centre or council search.');
@@ -155,13 +118,11 @@ export default function LinksScreen() {
         }
       }
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Opening link failed', error);
     }
   };
 
-  //
   const getCategoryColour = (category: string): string => {
-    //
     const colours: { [key: string]: string } = {
       Government: '#3B82F6',
       Health: '#EF4444',
@@ -177,9 +138,7 @@ export default function LinksScreen() {
     return colours[category] || '#6B7280';
   };
 
-  //
   if (loading) {
-    //
     return (
       <ThemedView style={styles.container}>
         <ThemedView style={styles.loadingContainer}>
@@ -190,7 +149,6 @@ export default function LinksScreen() {
     );
   }
 
-  //
   return (
     <ThemedView style={styles.container} >
       <ScrollView style={[styles.scrollContainer, !isRegionSupported && styles.blurredContent]} scrollEnabled={isRegionSupported}>
@@ -301,7 +259,6 @@ export default function LinksScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

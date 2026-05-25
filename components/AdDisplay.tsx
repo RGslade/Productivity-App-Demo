@@ -5,23 +5,17 @@ import MobileAds, {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
-  //
   type InterstitialAd as InterstitialAdType,
 } from 'react-native-google-mobile-ads';
 
 import { adMobService } from '@/services/adMobService';
 
-//
 let globalInterstitial: InterstitialAdType | null = null;
-//
 let isGlobalInterstitialLoaded = false;
-//
 let mobileAdsInitialisePromise: Promise<void> | null = null;
 
 /** Initialises Google Mobile Ads once for the app runtime. */
-//
 function initialiseMobileAds() {
-  //
   if (!mobileAdsInitialisePromise) {
     mobileAdsInitialisePromise = MobileAds().initialize().then(() => undefined);
   }
@@ -29,12 +23,9 @@ function initialiseMobileAds() {
 }
 
 /** Creates the shared interstitial instance after its runtime unit id is loaded. */
-//
 function configureGlobalInterstitial(adUnitId: string) {
-  //
   if (globalInterstitial || !adUnitId) return globalInterstitial;
 
-  //
   const interstitial = InterstitialAd.createForAdRequest(adUnitId);
   globalInterstitial = interstitial;
 
@@ -55,14 +46,11 @@ function configureGlobalInterstitial(adUnitId: string) {
 }
 
 /** Displays the global interstitial ad when loaded and queues the next load. */
-//
 export function showGlobalInterstitialAd() {
-  //
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
     return;
   }
 
-  //
   if (isGlobalInterstitialLoaded) {
     globalInterstitial?.show();
     return;
@@ -70,10 +58,8 @@ export function showGlobalInterstitialAd() {
 
   adMobService.getConfig()
     .then(async (config) => {
-      //
       if (!config?.interstitialAdUnitId) return;
       await initialiseMobileAds();
-      //
       const interstitial = configureGlobalInterstitial(config.interstitialAdUnitId);
       interstitial?.load();
     })
@@ -83,23 +69,16 @@ export function showGlobalInterstitialAd() {
 }
 
 /** Displays the global banner ad for users who have not removed ads. */
-//
 export default function MyBanner() {
-  //
   const [adInitialised, setAdInitialised] = useState(false);
-  //
   const [bannerAdUnitId, setBannerAdUnitId] = useState<string | null>(null);
-  //
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
-  //
   useEffect(() => {
-    //
     let mounted = true;
 
     adMobService.getConfig()
       .then(async (config) => {
-        //
         if (!mounted || !config?.bannerAdUnitId) {
           console.warn('Ad banner is disabled because no ad unit id is configured.');
           return;
@@ -107,13 +86,11 @@ export default function MyBanner() {
 
         await initialiseMobileAds();
 
-        //
         if (!mounted) return;
 
         setBannerAdUnitId(config.bannerAdUnitId);
         setAdInitialised(true);
 
-        //
         if (config.interstitialAdUnitId) {
           configureGlobalInterstitial(config.interstitialAdUnitId)?.load();
         }
@@ -122,42 +99,33 @@ export default function MyBanner() {
         console.error('Unable to initialise ad banner', error);
       });
 
-    //
     return () => {
       mounted = false;
     };
   }, []);
 
-  //
   useEffect(() => {
-    //
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    //
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    //
     const showSub = Keyboard.addListener(showEvent, () => {
       setKeyboardVisible(true);
     });
 
-    //
     const hideSub = Keyboard.addListener(hideEvent, () => {
       setKeyboardVisible(false);
     });
 
-    //
     return () => {
       showSub.remove();
       hideSub.remove();
     };
   }, []);
 
-  //
   if (!adInitialised || keyboardVisible || !bannerAdUnitId) {
     return null;
   }
 
-  //
   return (
     <BannerAd
       unitId={bannerAdUnitId}

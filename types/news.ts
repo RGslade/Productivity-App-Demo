@@ -1,10 +1,7 @@
-//
 export type NewsCategory = 'business' | 'strange' | 'politics' | 'uk';
 
-//
 export type NewsCategoryFilter = 'all' | NewsCategory;
 
-//
 export interface NewsArticle {
   id: string;
   title: string;
@@ -16,13 +13,11 @@ export interface NewsArticle {
   imageUrl?: string;
 }
 
-//
 export interface NewsCategoryBundle {
   category: NewsCategory;
   articles: NewsArticle[];
 }
 
-//
 export interface NewsFetchResult {
   categories: NewsCategoryBundle[];
   isOffline: boolean;

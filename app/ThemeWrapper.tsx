@@ -18,51 +18,33 @@ import { userService } from '@/services/userService';
 import { Colours } from '@/constants/Colours';
 
 /** Resolves feature-detail routes back to their main list screen. */
-//
 function getMainRouteForDetailPath(pathname: string) {
-  //
   if (pathname === '/todo/add' || pathname.startsWith('/todo/edit/')) return '/todo';
-  //
   if (pathname === '/budget/add' || pathname.startsWith('/budget/edit/')) return '/budget';
-  //
   if (pathname === '/notes/add' || pathname.startsWith('/notes/edit/')) return '/notes';
-  //
   if (pathname.startsWith('/documents/viewer/')) return '/documents';
-  //
   if (pathname === '/grades/add' || pathname.startsWith('/grades/edit/')) return '/grades';
   return null;
 }
 
-//
 export default function ThemeWrapper() {
-  //
   const { theme } = useThemeContext();
-  //
   const { userInfo, isAuthenticated, refreshAuth } = useAuth();
-  //
   const { isConfigured, isSupported, isAdFree } = useSubscriptions();
-  //
   const pathname = usePathname();
-  //
   const router = useRouter();
-  //
   const [isCheckingMandatoryUpdate, setIsCheckingMandatoryUpdate] = useState(true);
-  //
   const [legalVersions, setLegalVersions] = useState({ terms: 'v1', privacy: 'v1', lifenest: 'v1' });
-  //
   const [legalAcceptanceLoading, setLegalAcceptanceLoading] = useState(false);
-  //
   const [mandatoryUpdateState, setMandatoryUpdateState] = useState<MandatoryUpdateState>({
     isRequired: false,
     minimumVersion: null,
     currentVersion: Constants.expoConfig?.version || '0.0.0',
     storeUrl: null,
   });
-  //
   const hasDbAdFreeState =
     Boolean(userInfo?.is_premium_user) ||
     (userInfo?.subscription_status === 'active' && !userInfo?.is_premium_user);
-  //
   const shouldShowBanner = Boolean(
     userInfo &&
     !(
@@ -72,7 +54,6 @@ export default function ThemeWrapper() {
   );
 
 
-  //
   const shouldShowLegalModal = Boolean(
     isAuthenticated &&
     userInfo?.id &&
@@ -87,18 +68,12 @@ export default function ThemeWrapper() {
   );
 
   /** Refreshes active legal-document versions for the post-auth acceptance modal. */
-  //
   useEffect(() => {
-    //
     let isCancelled = false;
 
-    //
     const loadLegalVersions = async () => {
-      //
       if (!isAuthenticated) return;
-      //
       const versions = await settingsService.getLegalDocumentVersions();
-      //
       if (!isCancelled) {
         setLegalVersions(versions);
       }
@@ -106,22 +81,17 @@ export default function ThemeWrapper() {
 
     void loadLegalVersions();
 
-    //
     return () => {
       isCancelled = true;
     };
   }, [isAuthenticated]);
 
   /** Saves acceptance for all current policy confirmations and refreshes auth profile state. */
-  //
   const handleAcceptLegalDocuments = useCallback(async () => {
-    //
     if (!userInfo?.id) return;
 
-    //
     try {
       setLegalAcceptanceLoading(true);
-      //
       const acceptedAt = new Date().toISOString();
       await userService.updateProfile({
         terms_accepted: true,
@@ -141,26 +111,18 @@ export default function ThemeWrapper() {
   }, [legalVersions, refreshAuth, userInfo?.id]);
 
   /** Loads and stores current mandatory-update enforcement state. */
-  //
   const checkMandatoryUpdate = useCallback(async () => {
-    //
     const currentVersion = Constants.expoConfig?.version || '0.0.0';
-    //
     const nextState = await appUpdateService.getMandatoryUpdateState(currentVersion);
     setMandatoryUpdateState(nextState);
     setIsCheckingMandatoryUpdate(false);
   }, []);
 
-  //
   const handleAppForegroundNavigation = useCallback(() => {
-    //
     if (!isAuthenticated) return;
-    //
     if (!pathname || pathname.startsWith('/(auth)')) return;
 
-    //
     const mainRoute = getMainRouteForDetailPath(pathname);
-    //
     if (!mainRoute || mainRoute === pathname) return;
 
     router.replace(mainRoute as any);
@@ -175,18 +137,14 @@ export default function ThemeWrapper() {
     ['active']
   );
 
-  //
   useEffect(() => {
   }, [pathname]);
 
-  //
   useEffect(() => {
     checkMandatoryUpdate();
   }, [checkMandatoryUpdate]);
 
-  //
   if (isCheckingMandatoryUpdate) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -194,9 +152,7 @@ export default function ThemeWrapper() {
     );
   }
 
-  //
   if (mandatoryUpdateState.isRequired) {
-    //
     return (
       <RequiredUpdateGate
         currentVersion={mandatoryUpdateState.currentVersion}
@@ -206,7 +162,6 @@ export default function ThemeWrapper() {
     );
   }
 
-  //
   const appNavigationTheme = {
     ...(theme === 'dark' ? DarkTheme : DefaultTheme),
     colors: {
@@ -220,7 +175,6 @@ export default function ThemeWrapper() {
     },
   };
 
-  //
   return (
     <NavigationThemeProvider value={appNavigationTheme}>
       <Stack screenOptions={{
@@ -269,7 +223,6 @@ export default function ThemeWrapper() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,

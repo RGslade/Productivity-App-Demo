@@ -11,57 +11,36 @@ import { useEducationGrades } from '@/hooks/useEducationGrades';
 import { useThemeColour } from '@/hooks/useThemeColour';
 import { EDUCATION_GRADES, EDUCATION_TYPES, EducationType } from '@/types/educationGrade';
 
-//
 const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
-//
 const YEARS = Array.from({ length: 60 }, (_, index) => String(new Date().getFullYear() - index));
 
-//
 export default function AddEducationGradeScreen() {
-  //
   const { createGrade, isCreating } = useEducationGrades();
-  //
   const [subject, setSubject] = useState('');
-  //
   const [qualificationType, setQualificationType] = useState<EducationType>('GCSE');
-  //
   const [selectedGrade, setSelectedGrade] = useState('');
-  //
   const [otherGrade, setOtherGrade] = useState('');
-  //
   const [institutionName, setInstitutionName] = useState('');
-  //
   const [notes, setNotes] = useState('');
-  //
   const [month, setMonth] = useState('');
-  //
   const [year, setYear] = useState('');
-  //
   const cardBackground = useThemeColour({}, 'cardBackground');
 
-  //
   const availableGrades = useMemo(() => {
-    //
     if (qualificationType === 'Other') return [];
     return EDUCATION_GRADES[qualificationType];
   }, [qualificationType]);
 
-  //
   const handleSave = async () => {
-    //
     const trimmedSubject = subject.trim();
-    //
     const gradeValue = qualificationType === 'Other' ? otherGrade.trim() : selectedGrade;
-    //
     if (!trimmedSubject || !qualificationType || !gradeValue) {
       Alert.alert('Missing required fields', 'Subject, qualification type and grade are required.');
       return;
     }
 
-    //
     const dateAchieved = month && year ? `${year}-${month}-01` : null;
 
-    //
     try {
       await createGrade({
         subject: trimmedSubject,
@@ -78,7 +57,6 @@ export default function AddEducationGradeScreen() {
     }
   };
 
-  //
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Card style={[styles.card, { backgroundColor: cardBackground }]}> 
@@ -140,7 +118,6 @@ export default function AddEducationGradeScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },

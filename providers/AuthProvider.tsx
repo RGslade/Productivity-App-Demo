@@ -22,7 +22,6 @@ import { userService } from '@/services/userService';
 import { authService } from '@/services/authService';
 import { BackendTables } from '@/constants/backendResources';
 
-//
 interface AuthContextType {
   user: User | null;
   userInfo: UserInfo | null;
@@ -32,14 +31,10 @@ interface AuthContextType {
 }
 
 /** Masks an auth user's email address before logging provider diagnostics. */
-//
 function maskEmailForLog(value?: string | null): string | null {
-  //
   if (!value) return null;
 
-  //
   const [localPart = '', domain = ''] = value.split('@');
-  //
   const maskedLocal = localPart.length <= 2
     ? `${localPart.charAt(0) || '*'}***`
     : `${localPart.slice(0, 2)}***`;
@@ -47,41 +42,27 @@ function maskEmailForLog(value?: string | null): string | null {
   return domain ? `${maskedLocal}@${domain}` : maskedLocal;
 }
 
-//
 const AuthContext = createContext<AuthContextType | null>(null);
 
-//
 export const useAuthContext = () => {
-  //
   const ctx = useContext(AuthContext);
-  //
   if (!ctx) throw new Error('useAuthContext must be used inside AuthProvider');
   return ctx;
 };
 
-//
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  //
   const [isReady, setIsReady] = useState(false);
-  //
   const [user, setUser] = useState<User | null>(null);
-  //
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  //
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  //
   const segments = useSegments();
-  //
   const queryClient = useQueryClient();
-  //
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  //
   const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> =>
     Promise.race([
       promise,
       new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
     ]);
-  //
   const { data: accountSettings } = useQuery({
     queryKey: ['settings', 'account'],
     queryFn: () => settingsService.getAccountSettings(),
@@ -89,27 +70,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60 * 1000,
   });
 
-  //
   useEffect(() => {
-    //
     const syncNotifications = async () => {
-      //
       try {
-        //
         if (!isAuthenticated || !userInfo) {
           await unregisterBackgroundNotificationTask();
           await clearAllNotifications();
           return;
         }
 
-        //
         if (accountSettings?.notifications_enabled === false) {
           await unregisterBackgroundNotificationTask();
           await clearAllNotifications();
           return;
         }
 
-        //
         if (!accountSettings) {
           return;
         }
@@ -117,7 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await configureNotifications();
         await registerForPushNotifications();
 
-        //
         const username = userInfo.first_name || userInfo.email_address || 'Friend';
         defineBackgroundNotificationTask(async () => {
           await todoNotificationService.handleBackgroundNotifications(
@@ -135,25 +109,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [accountSettings, isAuthenticated, userInfo]);
 
   /** Log app permissions on start (Android only) */
-  //
   useEffect(() => {
-    //
     const logPermissions = async () => {
-      //
       if (Platform.OS !== 'android') return;
 
-      //
       try {
-        //
         const permissionEntries = Object.entries(PermissionsAndroid.PERMISSIONS);
-        //
-        const statuses = await Promise.all(
-          permissionEntries.map(async ([name, value]) => {
-            //
-            const granted = await PermissionsAndroid.check(value);
-            return { name, value, granted };
+        const permissionStatuses = await Promise.all(
+          permissionEntries.map(async ([permissionName, permissionValue]) => {
+            const granted = await PermissionsAndroid.check(permissionValue);
+            return { name: permissionName, value: permissionValue, granted };
           })
         );
+        void permissionStatuses;
       } catch (error) {
         console.error('[Permissions] Error checking permissions:', error);
       }
@@ -163,16 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /** CENTRAL session validation */
-  //
   const hydrateUser = useCallback(async (session: Session | null, source: 'bootstrap' | 'auth_event' | 'refresh' = 'auth_event') => {
-    //
     if (!session?.user) {
       setUser(null);
       setUserInfo(null);
       setIsAuthenticated(false);
       queryClient.removeQueries({ queryKey: ['auth', 'currentUser'] });
       // Stop background notifications when user logs out
-      //
       try {
         await unregisterBackgroundNotificationTask();
         await clearAllNotifications();
@@ -182,23 +147,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    //
     try {
-      //
       const maskedEmail = maskEmailForLog(session.user.email);
 
-      //
       const { data: profile } = await databaseService.getSingleGlobal<UserInfo>(BackendTables.userProfiles, 'auth_user_id', session.user?.id);
 
       // 🔑 PROFILE NOT READY YET (REGISTER FLOW)
-      //
       if (!userService.isProfileComplete(profile)) {
         console.warn('[Auth][Provider] Auth user profile is missing or incomplete', {
           authUserId: session.user.id,
           email: maskedEmail,
           source,
         });
-        //
         if (source === 'bootstrap') {
           console.warn('[Auth][Provider] Clearing persisted incomplete auth session on bootstrap', {
             authUserId: session.user.id,
@@ -213,7 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user);
         setUserInfo(null);
         setIsAuthenticated(false);
-        //
         const prefill = await userService.getCurrentAccountCompletionPrefill().catch(() => null);
         router.replace({
           pathname: '/(auth)/register',
@@ -231,7 +190,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      //
       const timeoutMinutes = await withTimeout<number | null>(
         settingsService.getSessionTimeout().catch((error) => {
           console.error('[Auth][Provider] Failed to load session timeout during hydration', {
@@ -244,13 +202,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         2500,
         null
       );
-      //
       const lastSignIn = new Date(session.user.last_sign_in_at ?? '');
-      //
       const diffMinutes =
         (Date.now() - lastSignIn.getTime()) / (1000 * 60);
 
-      //
       if (typeof timeoutMinutes === 'number' && diffMinutes > timeoutMinutes) {
         console.warn('[Auth][Provider] Session expired by account timeout', {
           authUserId: session.user.id,
@@ -268,25 +223,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(true);
       queryClient.setQueryData(['auth', 'currentUser'], profile);
       return true;
-    } catch (e) {
+    } catch (hydrationError) {
       console.error('[Auth][Provider] Hydration failed and session will be signed out', {
         authUserId: session.user.id,
         email: maskEmailForLog(session.user.email),
-        message: e instanceof Error ? e.message : String(e),
+        message: hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
       });
       await supabase.auth.signOut();
       return false;
     }
   }, [queryClient]);
 
-  //
   const refreshAuth = useCallback(async (): Promise<boolean> => {
-    //
     const { data } = await getSession();
-    //
     const session = data.session;
 
-    //
     if (!session?.user) {
       await hydrateUser(null, 'refresh');
       console.warn('[Auth][Provider] Manual auth refresh found no session');
@@ -294,9 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     for (let attempt = 0; attempt < 4; attempt++) {
-      //
       const isHydrated = await hydrateUser(session, 'refresh');
-      //
       if (isHydrated) {
         return true;
       }
@@ -310,13 +259,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [hydrateUser]);
 
   /** Initial load + auth listener */
-  //
   useEffect(() => {
-    //
     let isMounted = true;
-    //
     const bootstrapTimeout = setTimeout(() => {
-      //
       if (isMounted) {
         setIsReady(true);
       }
@@ -325,38 +270,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getSession().then(({ data }) => {
       return hydrateUser(data.session, 'bootstrap');
     }).finally(() => {
-      //
       if (isMounted) {
         setIsReady(true);
       }
       clearTimeout(bootstrapTimeout);
     });
 
-    //
-    const { data: sub } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         void hydrateUser(session, 'auth_event');
       }
     );
 
-    //
     return () => {
       isMounted = false;
       clearTimeout(bootstrapTimeout);
-      sub.subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, [hydrateUser]);
 
 
   /** Handles OAuth redirects opened from provider sign-in. */
-  //
   useEffect(() => {
-    //
     const handleOAuthUrl = async (url: string | null) => {
-      //
       if (!url || !url.includes('auth/callback')) return;
 
-      //
       try {
         await authService.completeOAuthRedirect(url);
         await refreshAuth();
@@ -368,45 +306,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     Linking.getInitialURL().then(handleOAuthUrl).catch((error) => {
       console.error('[Auth][Provider] Failed to read initial OAuth URL', error);
     });
-    //
     const subscription = Linking.addEventListener('url', ({ url }) => {
       void handleOAuthUrl(url);
     });
 
-    //
     return () => subscription.remove();
   }, [refreshAuth]);
 
   /** Routing guard */
-  //
   useEffect(() => {
-    //
     if (!isReady) return;
 
-    //
     const inAuthGroup = segments[0] === '(auth)';
-    //
     const authRoute = segments.at(1);
-    //
     const allowAuthenticatedAuthRoute = inAuthGroup && authRoute === 'change-password';
 
-    //
     if (!isAuthenticated && !inAuthGroup) {
       router.replace('/(auth)/login');
     }
 
-    //
     if (isAuthenticated && inAuthGroup && !allowAuthenticatedAuthRoute) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isReady, segments, user, userInfo]);
 
 
-  //
   const logout = async () => {
-    //
     const dismissAll = (router as any).dismissAll;
-    //
     if (typeof dismissAll === 'function') {
       dismissAll();
     }
@@ -414,9 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace('/(auth)/login');
   };
 
-  //
   if (!isReady) {
-    //
     return (
       <ThemedView style={{ flex: 1, justifyContent: 'center' }}>
         <LoadingSpinner />
@@ -424,7 +348,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  //
   return (
     <AuthContext.Provider
       value={{ user, userInfo, isAuthenticated, logout, refreshAuth }}

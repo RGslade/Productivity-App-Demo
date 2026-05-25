@@ -3,7 +3,6 @@
  * Handles job listings, search parameters, and location data
  */
 
-//
 export interface Job {
   id: string;
   title: string;
@@ -26,7 +25,6 @@ export interface Job {
   source: 'indeed' | 'reed';
 }
 
-//
 export interface LocationData {
   latitude: number;
   longitude: number;
@@ -34,7 +32,6 @@ export interface LocationData {
   address?: string;
 }
 
-//
 export interface JobSearchParams {
   description: string;
   location: LocationData;
@@ -46,7 +43,6 @@ export interface JobSearchParams {
   salary_max?: number;
 }
 
-//
 export interface IndeedSearchResponse {
   jobs: Job[];
   total_count: number;
@@ -54,7 +50,6 @@ export interface IndeedSearchResponse {
 }
 
 // Reed API specific type (before transformation to Job)
-//
 export interface ReedJob {
   jobId?: number;
   jobTitle?: string;
@@ -81,7 +76,6 @@ export interface ReedJob {
   externalUrl?: string;
 }
 
-//
 export interface JobSearchError {
   message: string;
   code: 'LOCATION_ERROR' | 'API_ERROR' | 'VALIDATION_ERROR' | 'PERMISSION_ERROR';

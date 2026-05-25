@@ -9,7 +9,6 @@ import { useThemeColour } from '@/hooks/useThemeColour';
 import { useAuth } from '@/hooks/useAuth';
 import { lifeNestService } from '@/services/lifeNestService';
 
-//
 interface NavbarProps {
   title: string;
   userName?: string;
@@ -17,32 +16,19 @@ interface NavbarProps {
   onBack?: () => void;
 }
 
-//
 export function Navbar({ title, showBack, onBack }: NavbarProps) {
-  //
   const [menuVisible, setMenuVisible] = useState(false);
-  //
   const [slideAnim] = useState(new Animated.Value(-300));
-  //
   const [isNavigating, setIsNavigating] = useState(false);
-  //
   const [lifeNestTokenCount, setLifeNestTokenCount] = useState<number | null>(null);
-  //
   const insets = useSafeAreaInsets();
-  //
   const { logout, userInfo, isAuthenticated } = useAuth();
-  //
   const pathname = usePathname();
-  //
   const backgroundColor = useThemeColour({}, 'navigationBackground');
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const borderColor = useThemeColour({}, 'border');
-  //
   const premiumAccent = useThemeColour({}, 'premiumAccent');
 
-  //
   const currentPageStyle = {
     backgroundColor: `${premiumAccent}22`,
     borderTopColor: premiumAccent,
@@ -51,9 +37,7 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
     borderBottomWidth: 2,
   };
 
-  //
   const toggleMenu = () => {
-    //
     if (menuVisible) {
       Animated.timing(slideAnim, {
         toValue: -300,
@@ -70,34 +54,27 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
     }
   };
 
-  //
   const handleLogout = async () => {
-    //
     try {
-      //
       if (isNavigating) return;
       setIsNavigating(true);
       toggleMenu();
       await logout();
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Navbar logout failed', error);
     } finally {
       setIsNavigating(false);
     }
   };
 
-  //
   const navigateTo = (path: string) => {
-    //
     if (isNavigating) return;
-    //
     if (pathname === path || (path === '/(tabs)' && pathname === '/')) {
       toggleMenu();
       return;
     }
     setIsNavigating(true);
     toggleMenu();
-    //
     try {
       router.replace(path as any);
     } finally {
@@ -106,21 +83,15 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
   };
 
   /** Closes the menu and shows a placeholder for unfinished release features. */
-  //
   const showComingSoonAlert = () => {
-    //
     if (isNavigating) return;
     toggleMenu();
     Alert.alert('Coming soon', 'This feature is coming soon. Stay tuned.');
   };
 
-  //
   const displayName = userInfo?.first_name || 'User';
-  //
   const pageTitle = title === 'Dashboard' ? `Welcome back, ${displayName}` : title;
-  //
   const pageTitleStyle = title === 'Dashboard' && userInfo?.is_premium_user ? { color: premiumAccent } : undefined;
-  //
   const forcedBackTitles = new Set([
     'Edit Transaction',
     'Document Viewer',
@@ -134,7 +105,6 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
     'Add Grade',
     'Edit Grade',
   ]);
-  //
   const topLevelTitles = new Set([
     'Dashboard',
     'Budget',
@@ -148,43 +118,32 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
     'Settings & Feedback',
     'Help & Feedback',
   ]);
-  //
   const shouldShowBack = forcedBackTitles.has(title)
     ? true
     : topLevelTitles.has(title)
       ? false
       : Boolean(showBack);
 
-  //
   const authOnlyTitles = new Set(['Login', 'Register', 'Forgot Password', 'Change Password']);
 
-  //
   useEffect(() => {
-    //
     let isCancelled = false;
 
-    //
     const loadLifeNestTokens = async () => {
-      //
       if (!isAuthenticated || !userInfo?.id) {
-        //
         if (!isCancelled) {
           setLifeNestTokenCount(null);
         }
         return;
       }
 
-      //
       try {
-        //
         const summary = await lifeNestService.getCurrentMonthlyUsageSummary();
-        //
         if (!isCancelled) {
           setLifeNestTokenCount(summary.totalTokensRemaining);
         }
       } catch (error) {
-        console.error('Operation failed');
-        //
+        console.error('Navbar LifeNest token load failed', error);
         if (!isCancelled) {
           setLifeNestTokenCount(null);
         }
@@ -193,18 +152,15 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
 
     void loadLifeNestTokens();
 
-    //
     return () => {
       isCancelled = true;
     };
   }, [isAuthenticated, pathname, userInfo?.id]);
 
-  //
   if (!isAuthenticated || authOnlyTitles.has(title)) {
     return null;
   }
 
-  //
   return (
     <View>
       <View style={[styles.navbar, { backgroundColor, borderBottomColor: borderColor, paddingTop: Math.max(insets.top, 16) }]}>
@@ -312,7 +268,6 @@ export function Navbar({ title, showBack, onBack }: NavbarProps) {
   );
 }
 
-//
 const styles = StyleSheet.create({
   navbar: {
     paddingHorizontal: 18,

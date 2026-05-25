@@ -160,7 +160,7 @@ export default function RegisterScreen() {
               </Picker>
             </View>
 
-            <Button title={loading ? (isCompleting ? "Completing Account..." : "Creating Account...") : (isCompleting ? "Complete Account" : "Create Account")} onPress={handleRegister} loading={loading} disabled={loading} fullWidth style={styles.registerButton} />
+            <Button title={loading ? (isCompleting ? "Completing Account..." : "Creating Account...") : (isCompleting ? "Complete Account" : "Create Account")} onPress={handleRegister} loading={loading} disabled={loading || !canSubmitCompletion} fullWidth style={styles.registerButton} />
 
             <View style={styles.loginSection}>
               <ThemedText style={styles.loginText}>

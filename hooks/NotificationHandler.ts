@@ -4,26 +4,16 @@ import { AppState, Platform } from 'react-native';
 
 // const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND_TODO_NOTIFICATION_TASK';
 
-//
 const notificationsAvailable = Platform.OS !== 'web';
-//
 let backgroundTaskHandler: (() => Promise<void>) | null = null;
-//
 let headlessTaskRegistered = false;
-//
 let backgroundFetchConfigured = false;
 
-//
 function isNotifeeReady(): boolean {
-  //
   try {
-    //
     if (!notifee) return false;
-    //
     if (typeof notifee.requestPermission !== 'function') return false;
-    //
     if (typeof notifee.displayNotification !== 'function') return false;
-    //
     if (typeof notifee.createTriggerNotification !== 'function') return false;
     return true;
   } catch {
@@ -31,17 +21,11 @@ function isNotifeeReady(): boolean {
   }
 }
 
-//
 function isBackgroundFetchReady(): boolean {
-  //
   try {
-    //
     if (!BackgroundFetch) return false;
-    //
     if (typeof BackgroundFetch.configure !== 'function') return false;
-    //
     if (typeof BackgroundFetch.finish !== 'function') return false;
-    //
     if (typeof BackgroundFetch.stop !== 'function') return false;
     return true;
   } catch {
@@ -49,21 +33,14 @@ function isBackgroundFetchReady(): boolean {
   }
 }
 
-//
 function registerHeadlessTask() {
-  //
   if (headlessTaskRegistered) return;
-  //
   if (!isBackgroundFetchReady()) return;
-  //
   if (typeof BackgroundFetch.registerHeadlessTask !== 'function') return;
 
   BackgroundFetch.registerHeadlessTask(async (event) => {
-    //
     const taskId = event.taskId;
-    //
     try {
-      //
       if (backgroundTaskHandler) {
         await backgroundTaskHandler();
         BackgroundFetch.finish(taskId);
@@ -79,20 +56,15 @@ function registerHeadlessTask() {
   headlessTaskRegistered = true;
 }
 
-//
 export async function configureNotifications() {
-  //
   if (!notificationsAvailable) return;
 
-  //
   try {
-    //
     if (!isNotifeeReady()) {
       console.warn('WARN Notifee module not available');
       return;
     }
 
-    //
     if (Platform.OS === 'android') {
       await notifee.createChannel({
         id: 'default',
@@ -106,27 +78,20 @@ export async function configureNotifications() {
   }
 }
 
-//
 export async function clearAllNotifications() {
-  //
   if (!notificationsAvailable) return;
 
-  //
   try {
-    //
     if (!isNotifeeReady()) return;
 
-    //
     if (typeof notifee.cancelTriggerNotifications === 'function') {
       await notifee.cancelTriggerNotifications();
     }
 
-    //
     if (typeof notifee.cancelDisplayedNotifications === 'function') {
       await notifee.cancelDisplayedNotifications();
     }
 
-    //
     if (typeof notifee.cancelAllNotifications === 'function') {
       await notifee.cancelAllNotifications();
     }
@@ -135,19 +100,14 @@ export async function clearAllNotifications() {
   }
 }
 
-//
 export async function registerForPushNotifications() {
-  //
   if (!notificationsAvailable) return null;
 
-  //
   try {
-    //
     if (!isNotifeeReady()) {
       console.warn('WARN Notifee module not available');
       return null;
     }
-    //
     const settings = await notifee.requestPermission();
     return settings;
   } catch (error) {
@@ -156,20 +116,15 @@ export async function registerForPushNotifications() {
   }
 }
 
-//
 export async function sendLocalNotification(title: string, body: string, data?: Record<string, any>) {
-  //
   try {
-    //
     if (!isNotifeeReady()) {
       console.warn('WARN Notifee module not available');
       return;
     }
 
-    //
     const isAppActive = AppState.currentState === 'active';
 
-    //
     if (isAppActive) {
       // Foreground notifications are disabled by product decision.
       // await notifee.displayNotification({
@@ -191,27 +146,21 @@ export async function sendLocalNotification(title: string, body: string, data?: 
   }
 }
 
-//
 export async function sendScheduledNotification(title: string, body: string, seconds: number, data?: Record<string, any>) {
-  //
   try {
-    //
     if (!isNotifeeReady()) {
       console.warn('WARN Notifee module not available');
       return;
     }
 
-    //
     const isAppActive = AppState.currentState === 'active';
 
-    //
     if (isAppActive) {
       // Foreground scheduled notifications are disabled by product decision.
       // const trigger: TimestampTrigger = {
       //   type: TriggerType.TIMESTAMP,
       //   timestamp: Date.now() + seconds * 1000,
       // };
-      //
       // await notifee.createTriggerNotification(
       //   {
       //     title,
@@ -228,7 +177,6 @@ export async function sendScheduledNotification(title: string, body: string, sec
       return;
     }
 
-    //
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: Date.now() + seconds * 1000,
@@ -252,11 +200,9 @@ export async function sendScheduledNotification(title: string, body: string, sec
   }
 }
 
-//
 export function defineBackgroundNotificationTask(
   taskHandler: () => Promise<void>
 ) {
-  //
   if (!isBackgroundFetchReady()) {
     console.warn(
       'WARN BackgroundFetch not available - skipping background task definition'
@@ -268,11 +214,9 @@ export function defineBackgroundNotificationTask(
   registerHeadlessTask();
 }
 
-//
 export async function registerBackgroundNotificationTask(
   minInterval: number = 900
 ) {
-  //
   if (!isBackgroundFetchReady()) {
     console.warn(
       'WARN BackgroundFetch not available - background notifications disabled'
@@ -280,15 +224,12 @@ export async function registerBackgroundNotificationTask(
     return;
   }
 
-  //
   if (backgroundFetchConfigured) {
     return;
   }
 
-  //
   try {
     registerHeadlessTask();
-    //
     const minIntervalMinutes = Math.max(15, Math.round(minInterval / 60));
 
     await BackgroundFetch.configure(
@@ -299,9 +240,7 @@ export async function registerBackgroundNotificationTask(
         startOnBoot: false,
       },
       async (taskId: string) => {
-        //
         try {
-          //
           if (backgroundTaskHandler) {
             await backgroundTaskHandler();
           }
@@ -323,15 +262,12 @@ export async function registerBackgroundNotificationTask(
   }
 }
 
-//
 export async function unregisterBackgroundNotificationTask() {
-  //
   if (!isBackgroundFetchReady()) {
     console.warn('WARN BackgroundFetch not available - nothing to unregister');
     return;
   }
 
-  //
   try {
     backgroundFetchConfigured = false;
     await BackgroundFetch.stop();

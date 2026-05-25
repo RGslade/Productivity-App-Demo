@@ -4,7 +4,6 @@ import { CreateTransactionRequest, UpdateTransactionRequest} from '../types/tran
 import { GetCurrentMonth, GetCurrentYear } from './dataHandler';
 
 // Query keys for React Query cache management
-//
 export const transactionKeys = {
   all: ['transactions'] as const,
   lists: () => [...transactionKeys.all, 'list'] as const,
@@ -17,24 +16,19 @@ export const transactionKeys = {
 };
 
 // Hook for getting all transactions with mutation methods
-//
 export const useTransactions = () => {
-  //
   const queryClient = useQueryClient();
-  //
   const query = useQuery({
     queryKey: transactionKeys.lists(),
     queryFn: () => transactionService.getTransactions(),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
-  //
   const categoriesQuery = useQuery({
     queryKey: transactionKeys.categories(),
     queryFn: () => transactionService.getTransactionCategories(),
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  //
   const updateMutation = useMutation({
       mutationFn: ({ id, data }: { id: number; data: UpdateTransactionRequest }) =>
         transactionService.updateTransaction(id, data),
@@ -47,7 +41,6 @@ export const useTransactions = () => {
       }
     });
 
-    //
     const createMutation = useMutation({
       mutationFn: (data: CreateTransactionRequest) => 
         transactionService.createTransaction(data),
@@ -59,7 +52,6 @@ export const useTransactions = () => {
       },
     });
 
-    //
     const deleteMutation = useMutation({
       mutationFn: (id: number) => transactionService.deleteTransaction(id),
       onSuccess: () => {
@@ -87,7 +79,6 @@ export const useTransactions = () => {
 };
 
 /** Gets transaction categories filtered by transaction type when provided. */
-//
 export const useTransactionCategories = (type?: string) => {
   return useQuery({
     queryKey: [...transactionKeys.categories(), type || 'all'],
@@ -97,12 +88,9 @@ export const useTransactionCategories = (type?: string) => {
 };
 
 // Hook for getting transactions by month
-//
 export const useTransactionsByMonth = (month: number, year: number) => {
-  //
   const queryClient = useQueryClient();
   
-  //
   const query = useQuery({
     queryKey: transactionKeys.monthly(month),
     queryFn: () => transactionService.getTransactionsByMonth(month, year),
@@ -110,7 +98,6 @@ export const useTransactionsByMonth = (month: number, year: number) => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  //
   const createMutation = useMutation({
     mutationFn: (data: CreateTransactionRequest) => 
       transactionService.createTransaction(data),
@@ -122,7 +109,6 @@ export const useTransactionsByMonth = (month: number, year: number) => {
     },
   });
 
-  //
   const deleteMutation = useMutation({
     mutationFn: (id: number) => transactionService.deleteTransaction(id),
     onSuccess: () => {
@@ -147,7 +133,6 @@ export const useTransactionsByMonth = (month: number, year: number) => {
 };
 
 // Hook for getting specific transaction
-//
 export const useTransaction = (id: number) => {
   return useQuery({
     queryKey: transactionKeys.detail(id),
@@ -158,9 +143,7 @@ export const useTransaction = (id: number) => {
 };
 
 // Hook for creating transaction
-//
 export const useCreateTransaction = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateTransactionRequest) => 
@@ -170,7 +153,6 @@ export const useCreateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
       
       // Invalidate monthly data if we know the month
-      //
       const month = new Date(newTransaction.due_date).getMonth() + 1;
       queryClient.invalidateQueries({ queryKey: transactionKeys.monthly(month) });
     },
@@ -181,9 +163,7 @@ export const useCreateTransaction = () => {
 };
 
 // Hook for updating transaction
-//
 export const useUpdateTransaction = () => {
-  //
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -197,7 +177,6 @@ export const useUpdateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
       
       // Invalidate monthly data
-      //
       const month = new Date(updatedTransaction.due_date).getMonth() + 1;
       queryClient.invalidateQueries({ queryKey: transactionKeys.monthly(month) });
     },
@@ -208,9 +187,7 @@ export const useUpdateTransaction = () => {
 };
 
 // Hook for deleting transaction
-//
 export const useDeleteTransaction = () => {
-  //
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -234,13 +211,9 @@ export const useDeleteTransaction = () => {
 };
 
 // Hook for transaction statistics (derived from transactions data)
-//
 export const useTransactionStats = (month?: number, year?: number) => {
-  //
   const { transactions: allTransactions = [] } = useTransactions();
-  //
   const { transactions: monthlyTransactions = [] } = useTransactionsByMonth(month || new Date().getMonth() + 1, year || new Date().getFullYear());
-  //
   const transactions = month ? monthlyTransactions : allTransactions;
   
   return {
@@ -253,25 +226,17 @@ export const useTransactionStats = (month?: number, year?: number) => {
 };
 
 // Hook for current month transactions
-//
 export const useCurrentMonthTransactions = () => {
-  //
   const month = GetCurrentMonth();
-  //
   const year = GetCurrentYear();
   return useTransactionsByMonth(month, year);
 };
 
 // Hook for financial summary
-//
 export const useFinancialSummary = () => {
-  //
   const month = GetCurrentMonth();
-  //
   const year = GetCurrentYear();
-  //
   const { transactions: allTransactions = [] } = useTransactions();
-  //
   const { transactions: monthlyTransactions = [] } = useTransactionsByMonth(month, year);
 
   return {

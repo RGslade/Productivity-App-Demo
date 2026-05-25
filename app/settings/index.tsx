@@ -26,78 +26,49 @@ import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { deriveSubscriptionProfile, findPackageByKind } from '@/services/subscriptionService';
 import { BrandColours } from '@/constants/Colours';
 
-//
 export default function SettingsScreen() {
-  //
   const { userInfo, logout } = useAuth();
-  //
   const { restorePurchases, purchasePackage, customerInfo, offerings, isConfigured, configurationError, isPremium } = useSubscriptions();
-  //
   const { accountSettings, displaySettings, todoSettings, transactionSettings, chatBotSettings } = useSettings();
-  //
   const updateAccountSettings = useUpdateAccountSettings();
-  //
   const updateDisplaySettings = useUpdateDisplaySettings();
-  //
   const updateToDoSettings = useUpdateToDoSettings();
-  //
   const updateTransactionSettings = useUpdateTransactionSettings();
-  //
   const updateChatBotSettings = useUpdateChatBotSettings();
-  //
   const [loading, setLoading] = useState(false);
-  //
   const purchaseInFlightRef = useRef(false);
-  //
   const [activeSection, setActiveSection] = useState<SettingsSection>(null);
-  //
   const [updateMessage, setUpdateMessage] = useState<{ message: string; isSuccess: boolean } | null>(null);
-  //
   const [showDatePicker, setShowDatePicker] = useState(false);
-  //
   const themes = ['light', 'dark', 'system'] as const;
-  //
   const [availableModels, setAvailableModels] = useState<string[]>([]);
-  //
   const [modelsLoading, setModelsLoading] = useState(true);
-  //
   const backgroundColour = useThemeColour({}, 'background');
-  //
   const cardBackgroundColour = useThemeColour({}, 'cardBackground');
-  //
   const textColour = useThemeColour({}, 'text');
-  //
   const inputBackgroundColour = useThemeColour({}, 'inputBackground');
-  //
   const inputBorderColour = useThemeColour({}, 'inputBorder');
 
-  //
   useEffect(() => {
-    //
     let mounted = true;
 
     lifeNestService.getModels()
       .then(models => {
-        //
         if (mounted) setAvailableModels(models);
       })
       .catch(err => {
         console.error('Operation failed');
-        //
         if (mounted) setAvailableModels([]);
       })
       .finally(() => {
-        //
         if (mounted) setModelsLoading(false);
       });
 
-    //
     return () => {
       mounted = false;
     };
   }, []);
 
-  //
   const [profileData, setProfileData] = useState<UpdateProfileRequest>({
     first_name: userInfo?.first_name || '',
     middle_names: userInfo?.middle_names || '',
@@ -115,62 +86,46 @@ export default function SettingsScreen() {
     job_status: userInfo?.job_status,
   });
 
-  //
   const [accountData, setAccountData] = useState<Partial<UserSettingsAccount>>({
     notifications_enabled: accountSettings?.notifications_enabled,
   });
 
-  //
   const [displayData, setDisplayData] = useState<Partial<UserSettingsDisplay>>({
     theme: displaySettings?.theme,
     default_font: displaySettings?.default_font,
   });
 
-  //
   const [todoData, setToDoData] = useState<Partial<UserSettingsToDo>>({
     todo_soon_determiner: todoSettings?.todo_soon_determiner,
   });
 
-  //
   const [transactionData, setTransactionData] = useState<Partial<UserSettingsTransactions>>({
     preferred_currency: transactionSettings?.preferred_currency || DEFAULT_CURRENCY_SYMBOL,
   });
 
-  //
   const [chatBotData, setChatBotData] = useState<Partial<UserSettingsChatBot>>({
     preferred_model: chatBotSettings?.preferred_model,
     background_colour: chatBotSettings?.background_colour,
   });
-  //
   const removeAdsPackage = findPackageByKind(offerings, 'remove_ads');
-  //
   const subscriptionProfile = deriveSubscriptionProfile(customerInfo);
-  //
   const isAdFree = subscriptionProfile.isAdFree;
 
-  //
   const handleDatePick = (_: any, selected?: Date) => {
     setShowDatePicker(false);
-    //
     if (!selected) return;
 
-    //
     const day = String(selected.getDate()).padStart(2, '0');
-    //
     const month = String(selected.getMonth() + 1).padStart(2, '0');
-    //
     const year = selected.getFullYear();
 
-    //
     const display = `${day}/${month}/${year}`;
-    //
     const dbValue = `${year}-${month}-${day}`;
 
     setDobDisplay(display);
     setProfileData(prev => ({ ...prev, birth_date: dbValue }));
   };
 
-  //
   const handleSetProfileData = useCallback(async (user: UserInfo) => {
     if(validateAuthUser()) {user = await userService.getUserProfile()};
     setProfileData({
@@ -191,47 +146,35 @@ export default function SettingsScreen() {
     });
   }, []);
 
-  //
   useEffect(() => {
-    //
     if (userInfo) handleSetProfileData(userInfo);
 
-    //
     if (accountSettings) setAccountData({ notifications_enabled: accountSettings.notifications_enabled });
 
-    //
     if (displaySettings) setDisplayData({ theme: displaySettings.theme, default_font: displaySettings.default_font, });
 
-    //
     if (todoSettings) setToDoData({ todo_soon_determiner: todoSettings.todo_soon_determiner, });
 
-    //
     if (transactionSettings) setTransactionData({ preferred_currency: transactionSettings.preferred_currency || DEFAULT_CURRENCY_SYMBOL });
 
-    //
     if (chatBotSettings) setChatBotData({ preferred_model: chatBotSettings.preferred_model, background_colour: chatBotSettings.background_colour });
   }, [userInfo, accountSettings, displaySettings, todoSettings, transactionSettings, chatBotSettings, handleSetProfileData]);
 
-  //
   const showMessage = (message: string, isSuccess: boolean = true) => {
     setUpdateMessage({ message, isSuccess });
     setTimeout(() => setUpdateMessage(null), 3000);
   };
 
-  //
   const handleProfileUpdate = async () => {
-    //
     if (!userInfo) return;
     setLoading(true);
     setActiveSection('profile');
-    //
     try {
-      //
       const updatedUser = await userService.updateUser(profileData);
       await handleSetProfileData(updatedUser);
       showMessage('Profile updated.');
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Profile update failed', error);
       showMessage('Failed to update profile. Please try again.', false);
     } finally {
       setLoading(false);
@@ -239,17 +182,15 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleAccountSettingsUpdate = async () => {
     setLoading(true);
     setActiveSection('account');
 
-    //
     try {
       await updateAccountSettings.mutateAsync(accountData);
       showMessage('Account updated.');
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Account settings update failed', error);
       showMessage('Failed to update account settings. Please try again.', false);
     } finally {
       setLoading(false);
@@ -257,17 +198,15 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleDisplaySettingsUpdate = async () => {
     setLoading(true);
     setActiveSection('appearance');
 
-    //
     try {
       await updateDisplaySettings.mutateAsync(displayData);
       showMessage('Appearance updated.');
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Display settings update failed', error);
       showMessage('Failed to update display settings. Please try again.', false);
     } finally {
       setLoading(false);
@@ -275,17 +214,15 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleToDoSettingsUpdate = async () => {
     setLoading(true);
     setActiveSection('dashboard');
 
-    //
     try {
       await updateToDoSettings.mutateAsync(todoData);
       showMessage('Tasks updated.');
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Task settings update failed', error);
       showMessage('Failed to update ToDo settings.', false);
     } finally {
       setLoading(false);
@@ -293,17 +230,15 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleTransactionSettingsUpdate = async () => {
     setLoading(true);
     setActiveSection('transactions');
 
-    //
     try {
       await updateTransactionSettings.mutateAsync(transactionData);
       showMessage('Budget updated.');
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Transaction settings update failed', error);
       showMessage('Failed to update transaction settings.', false);
     } finally {
       setLoading(false);
@@ -311,17 +246,15 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleChatBotSettingsUpdate = async () => {
     setLoading(true);
     setActiveSection('chatBot');
 
-    //
     try {
       await updateChatBotSettings.mutateAsync(chatBotData);
       showMessage('LifeNest updated.');
     } catch (error) {
-      console.error('Operation failed');
+      console.error('LifeNest settings update failed', error);
       showMessage('Failed to update ChatBot settings.', false);
     } finally {
       setLoading(false);
@@ -329,7 +262,6 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleDeleteAccount = async () => {
     Alert.alert('Delete Account', 'Are you sure you want to delete your account? You cannot get it back after deletion.',
       [
@@ -338,13 +270,12 @@ export default function SettingsScreen() {
           text: 'Delete Account',
           style: 'destructive',
           onPress: async () => {
-            //
             try {
               setLoading(true);
               await userService.deleteAccount();
               Alert.alert('Account Deleted', 'Your account has been permanently deleted.', [{ text: 'OK', onPress: () => logout() }]);
             } catch (error) {
-              console.error('Operation failed');
+              console.error('Account deletion failed', error);
               Alert.alert('Delete Account Failed', 'We could not delete your account. Please try again.');
             } finally {
               setLoading(false);
@@ -355,7 +286,6 @@ export default function SettingsScreen() {
     );
   };
 
-  //
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to log out?',
       [
@@ -365,14 +295,11 @@ export default function SettingsScreen() {
     );
   };
 
-  //
   const handleRestorePurchases = async () => {
-    //
     if (purchaseInFlightRef.current) {
       return;
     }
 
-    //
     if (!isConfigured) {
       Alert.alert(
         'Purchases unavailable',
@@ -383,14 +310,11 @@ export default function SettingsScreen() {
       return;
     }
 
-    //
     try {
       purchaseInFlightRef.current = true;
       setLoading(true);
-      //
-      const info = await restorePurchases();
-      //
-      const profile = deriveSubscriptionProfile(info);
+      const restoredCustomerInfo = await restorePurchases();
+      const profile = deriveSubscriptionProfile(restoredCustomerInfo);
       Alert.alert(
         profile.isAdFree ? 'Purchases restored' : 'Nothing to restore',
         profile.isAdFree
@@ -398,7 +322,7 @@ export default function SettingsScreen() {
           : 'No active subscription or non-consumable purchase was found for this store account. LifeNest token balances are synced to your signed-in account and do not need store restore.'
       );
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Purchase restore failed', error);
       Alert.alert('Restore failed', 'We could not restore purchases. Please try again.');
     } finally {
       purchaseInFlightRef.current = false;
@@ -406,14 +330,11 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleRemoveAdsPurchase = async () => {
-    //
     if (purchaseInFlightRef.current) {
       return;
     }
 
-    //
     if (!isConfigured) {
       Alert.alert(
         'Purchases unavailable',
@@ -424,20 +345,16 @@ export default function SettingsScreen() {
       return;
     }
 
-    //
     if (!removeAdsPackage) {
       Alert.alert('Remove Ads unavailable', 'The Remove Ads product is not currently available.');
       return;
     }
 
-    //
     try {
       purchaseInFlightRef.current = true;
       setLoading(true);
-      //
-      const info = await purchasePackage(removeAdsPackage);
-      //
-      const profile = deriveSubscriptionProfile(info);
+      const purchasedCustomerInfo = await purchasePackage(removeAdsPackage);
+      const profile = deriveSubscriptionProfile(purchasedCustomerInfo);
       Alert.alert(
         profile.isAdFree ? 'Purchase successful' : 'Purchase complete',
         profile.isAdFree
@@ -445,9 +362,7 @@ export default function SettingsScreen() {
           : 'Purchase completed but has not activated yet. Please restore purchases if needed.'
       );
     } catch (error) {
-      //
       const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-      //
       if (message.includes('cancel')) return;
       console.error('Operation failed');
       Alert.alert('Purchase failed', 'We could not complete the Remove Ads purchase. Please try again.');
@@ -457,21 +372,15 @@ export default function SettingsScreen() {
     }
   };
 
-  //
   const handleUnsubscribeInfo = async () => {
-    //
     const profile = deriveSubscriptionProfile(customerInfo);
-    //
     const managementUrl = profile.managementUrl;
-    //
     const platformLabel = Platform.OS === 'ios' ? 'App Store subscriptions' : 'Google Play subscriptions';
-    //
     const instructions =
       Platform.OS === 'ios'
         ? 'Open iPhone Settings, tap your Apple ID, then Subscriptions. Select Productivity Mobile App and cancel renewal.'
         : 'Open Google Play Store, tap profile, Payments & subscriptions, then Subscriptions. Select Productivity Mobile App and cancel renewal.';
 
-    //
     if (managementUrl) {
       Alert.alert(
         'Manage subscription',
@@ -481,11 +390,10 @@ export default function SettingsScreen() {
           {
             text: 'Open store subscriptions',
             onPress: async () => {
-              //
               try {
                 await Linking.openURL(managementUrl);
               } catch (error) {
-                console.error('Operation failed');
+                console.error('Opening subscription management URL failed', error);
                 Alert.alert('Unable to open', 'Could not open the subscription page automatically.');
               }
             },
@@ -498,38 +406,27 @@ export default function SettingsScreen() {
     Alert.alert('Manage subscription', instructions);
   };
 
-  //
   const formatDOBForDisplay = (isoDate?: string) => {
-    //
     if (!isoDate) return '';
-    //
     const [year, month, day] = isoDate.split('-');
     return `${day}/${month}/${year}`;
   };
 
-  //
   const formatDOBForDB = (displayDate: string) => {
-    //
     const [day, month, year] = displayDate.split('/');
-    //
     if (!day || !month || !year) return '';
     return `${year}-${month}-${day}`;
   };
 
-  //
   const handleDOBChange = (text: string) => {
     // Keep only date digits so the input always formats the same way.
-    //
     let digits = text.replace(/\D/g, '');
 
     // DDMMYYYY is the only valid shape for this input.
-    //
     if (digits.length > 8) digits = digits.slice(0, 8);
 
-    //
     let formatted = digits;
 
-    //
     if (digits.length > 4) {
       formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
     } else if (digits.length > 2) {
@@ -540,32 +437,24 @@ export default function SettingsScreen() {
     setDobDisplay(formatted);
   };
 
-  //
   const [dobDisplay, setDobDisplay] = useState(formatDOBForDisplay(profileData.birth_date));
 
-  //
   useEffect(() => {
-    //
     if (profileData.birth_date) setDobDisplay(formatDOBForDisplay(profileData.birth_date));
   }, [profileData.birth_date]);
 
   /** Opens the Demo Publisher website from the producer card. */
-  //
   const handleOpenPublisherSite = async () => {
-    //
     const url = 'https://example.com';
-    //
     try {
       await Linking.openURL(url);
     } catch (error) {
-      console.error('Operation failed');
+      console.error('Opening publisher site failed', error);
       Alert.alert('Unable to open', 'Could not open Demo Publisher right now.');
     }
   };
 
-  //
   if (!userInfo || modelsLoading) {
-    //
     return (
       <ThemedView style={styles.container}>
         <ThemedView style={styles.loadingContainer}>
@@ -575,7 +464,6 @@ export default function SettingsScreen() {
     );
   }
 
-  //
   return (
     <ThemedView style={[styles.container]}>
       <ScrollView style={[styles.scrollContainer]}>
@@ -722,15 +610,12 @@ export default function SettingsScreen() {
 
             <ThemedView style={styles.settingItem}>
               <Input label="Due Soon Period (Days)" value={todoData.todo_soon_determiner === undefined ? '' : todoData.todo_soon_determiner.toString()} onChangeText={(text) => {
-                //
                 if (text === '') {
                   setToDoData(prev => ({ ...prev, todo_soon_determiner: undefined }));
                   return;
                 }
 
-                //
                 const parsed = Number(text);
-                //
                 if (!Number.isNaN(parsed)) {
                   setToDoData(prev => ({ ...prev, todo_soon_determiner: parsed }));
                 }
@@ -872,7 +757,6 @@ export default function SettingsScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,17 +1,14 @@
 import { useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 
-//
 export type AppStateHandlerCallback = (state: AppStateStatus) => void;
 
-//
 interface AppStateListener {
   id: string;
   callback: AppStateHandlerCallback;
   states?: AppStateStatus[]; // If specified, only trigger on these states
 }
 
-//
 class AppStateManager {
   private listeners: Map<string, AppStateListener> = new Map();
   private currentState: AppStateStatus = 'active';
@@ -23,7 +20,6 @@ class AppStateManager {
 
   private initializeAppState() {
     // Get initial app state
-    //
     const currentAppState = AppState.currentState;
     this.currentState = currentAppState;
 
@@ -37,7 +33,6 @@ class AppStateManager {
     // Notify all listeners
     this.listeners.forEach((listener) => {
       // If specific states are defined, only trigger if current state matches
-      //
       if (listener.states && !listener.states.includes(nextAppState)) {
         return;
       }
@@ -91,7 +86,6 @@ class AppStateManager {
    * Cleanup (typically called on app unmount)
    */
   cleanup() {
-    //
     if (this.subscription) {
       this.subscription.remove();
     }
@@ -100,7 +94,6 @@ class AppStateManager {
 }
 
 // Singleton instance
-//
 export const appStateManager = new AppStateManager();
 
 /**
@@ -114,11 +107,9 @@ export const useAppState = (
   listenerId: string = `listener-${Math.random()}`,
   states?: AppStateStatus[]
 ) => {
-  //
   useEffect(() => {
     appStateManager.addListener(listenerId, callback, states);
 
-    //
     return () => {
       appStateManager.removeListener(listenerId);
     };

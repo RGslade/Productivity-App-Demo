@@ -1,4 +1,3 @@
-//
 export interface FeedbackForm {
   subject: string;
   feedback_text: string;
@@ -7,7 +6,6 @@ export interface FeedbackForm {
   created_at: string;
 }
 
-//
 export const FEEDBACK_CATEGORIES = [
   'Bug Report',
   'Feature Request',

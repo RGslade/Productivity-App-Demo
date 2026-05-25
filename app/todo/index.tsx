@@ -15,33 +15,20 @@ import { useThemeColour } from '@/hooks/useThemeColour';
 import {settingsService} from '@/services/settingsService';
 import { formatDate, showAlert } from '@/hooks/dataHandler';
 
-//
 export default function TodoListScreen() {
-  //
   const [refreshing, setRefreshing] = useState(false);
-  //
   const { premiumCategory, type } = useLocalSearchParams<{ premiumCategory?: string; type?: string }>();
-  //
   const [itemFilter, setItemFilter] = useState<'all' | 'tasks' | 'checklists'>(type === 'checklists' ? 'checklists' : type === 'tasks' ? 'tasks' : 'all');
-  //
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
-  //
   const [sortBy, setSortBy] = useState<'dueDate' | 'title' | 'category'>('dueDate');
-  //
   const { todos, categories, premiumCategories, loading, fetchTodos, updateTodo, deleteToDo, } = useTodos();
-  //
   const backgroundColor = useThemeColour({}, 'background');
-  //
   const [soonDays, setSoonDays] = useState<number | null>(null);
-  //
   useEffect(() => { fetchTodos(); }, [fetchTodos]);
-  //
   useEffect(() => { settingsService.getToDoSoonDays?.().then(setSoonDays); }, []);
 
-  //
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    //
     try {
       await fetchTodos();
     } finally {
@@ -49,11 +36,8 @@ export default function TodoListScreen() {
     }
   }, [fetchTodos]);
 
-  //
   const handleToggleComplete = async (todoId: number) => {
-    //
     try {
-      //
       const toDoItem = await todoService.getToDoItem(todoId)
       toDoItem.is_complete = !toDoItem?.is_complete
       await updateTodo({ id: todoId, data: toDoItem });
@@ -62,11 +46,9 @@ export default function TodoListScreen() {
     }
   };
 
-  //
   const handleDelete = (todoId: number, title: string) => {
     showAlert('Delete Task', `Are you sure you want to delete "${title}"?`, [{ text: 'Cancel', onPress: undefined, style: 'cancel' }, {
       text: 'Delete', style: 'destructive', onPress: async () => {
-        //
         try {
           await deleteToDo(todoId);
         } catch (error) {
@@ -76,26 +58,19 @@ export default function TodoListScreen() {
     }]);
   };
 
-  //
   const getCategoryName = useCallback((categoryId?: number | null) => {
-    //
     if (!categoryId) return 'Checklist';
     return categories?.find(c => c.id === categoryId)?.name || 'Unknown';
   }, [categories]);
 
-  //
   const isItemComplete = useCallback((todo: ToDoItem) => {
-    //
     if (todo.item_kind !== 'checklist') return todo.is_complete;
     return Boolean(todo.checklist_items?.length) && (todo.checklist_items || []).every((item) => item.is_complete);
   }, []);
 
-  //
   const filteredAndSortedTodos = useMemo(() => {
-    //
     if (!todos) return [];
 
-    //
     let filtered = todos;
 
     switch (itemFilter) {
@@ -120,11 +95,8 @@ export default function TodoListScreen() {
       default:
         break;
     }
-    //
     if (premiumCategory) {
-      //
       const categoryMatch = premiumCategories.find((item) => item.name === premiumCategory);
-      //
       if (categoryMatch) {
         filtered = filtered.filter((todo) => todo.premium_category_id === categoryMatch.id);
       }
@@ -139,29 +111,21 @@ export default function TodoListScreen() {
           return getCategoryName(a.category_id).localeCompare(getCategoryName(b.category_id));
         case 'dueDate':
         default:
-          //
           if (!a['due_date_&_time'] && !b['due_date_&_time']) return 0;
-          //
           if (!a['due_date_&_time']) return 1;
-          //
           if (!b['due_date_&_time']) return -1;
           return new Date(a['due_date_&_time']).getTime() - new Date(b['due_date_&_time']).getTime();
       }
     });
   }, [todos, itemFilter, filter, sortBy, getCategoryName, premiumCategory, premiumCategories, isItemComplete]);
 
-  //
   const getTodoStatus = useCallback((todo: ToDoItem): 'completed' | 'overdue' | 'due-soon' | 'normal' => {
-    //
     if (isItemComplete(todo)) return 'completed';
-    //
     if (todo['due_date_&_time'] && new Date(todo['due_date_&_time']) < new Date()) return 'overdue';
-    //
     if (soonDays !== null && todo['due_date_&_time'] && new Date(todo['due_date_&_time']) <= new Date(Date.now() + soonDays * 24 * 60 * 60 * 1000)) return 'due-soon';
     return 'normal';
   }, [isItemComplete, soonDays]);
 
-  //
   const getStatusColour = useCallback((status: string) => {
     switch (status) {
       case 'completed': return '#22C55E';
@@ -172,7 +136,6 @@ export default function TodoListScreen() {
     }
   }, []);
 
-  //
   const setCardBorderColour = useCallback(
     (statusColour: string) => ({
       borderWidth: 0,
@@ -182,9 +145,7 @@ export default function TodoListScreen() {
     []
   );
 
-  //
   if (loading && !todos) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
@@ -192,11 +153,9 @@ export default function TodoListScreen() {
     );
   }
 
-  //
   if (soonDays === null) {
     return <ThemedView style={styles.loadingContainer}><LoadingSpinner /></ThemedView>;
   }
-  //
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
@@ -266,13 +225,9 @@ export default function TodoListScreen() {
           </Card>
         ) : (
           filteredAndSortedTodos.map((todo) => {
-            //
             const status = getTodoStatus(todo);
-            //
             const statusColour = getStatusColour(status);
-            //
             const Cardborder = setCardBorderColour(statusColour);
-            //
             return (
               <TouchableOpacity key={todo.id} onPress={() => router.push(`/todo/edit/${todo.id}`)} >
                 <Card style={[styles.todoCard, Cardborder && { borderWidth: Cardborder.borderWidth, borderColor: Cardborder.borderColor, borderLeftWidth: Cardborder.borderLeftWidth }]}>
@@ -317,7 +272,6 @@ export default function TodoListScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

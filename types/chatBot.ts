@@ -1,4 +1,3 @@
-//
 export interface Conversation {
   id: string;
   openai_conversation_id: string;
@@ -10,7 +9,6 @@ export interface Conversation {
   last_response_id?: string | null;
 }
 
-//
 export interface ChatMessage {
   id: number;
   message: string;
@@ -21,21 +19,18 @@ export interface ChatMessage {
   is_user_message: boolean;
 }
 
-//
 export interface SendMessageRequest {
   message: string;
   model: string;
   conversationId: string;
 }
 
-//
 export interface SendMessageResponse {
   conversationId: string;
   aiResponse: ChatMessage[];
   usage?: LifeNestUsageEvent | null;
 }
 
-//
 export interface ChatFeedbackReportRequest {
   conversationId: string;
   messageId: number;
@@ -44,14 +39,12 @@ export interface ChatFeedbackReportRequest {
   details?: string;
 }
 
-//
 export interface LifeNestUsageEvent {
   model: string;
   tokensUsed: number;
   inputCharacterCount: number;
 }
 
-//
 export interface LifeNestMonthlyUsageSummary {
   periodKey: string | null;
   periodStart: string | null;
@@ -66,7 +59,6 @@ export interface LifeNestMonthlyUsageSummary {
 }
 
 
-//
 export interface GeneratedChecklist {
   title: string;
   items: string[];

@@ -3,7 +3,6 @@ import React from 'react';
 import {TouchableOpacity, Text, ActivityIndicator, ViewStyle, TextStyle, TouchableOpacityProps, StyleProp, } from 'react-native';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
   variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info';
@@ -16,7 +15,6 @@ interface ButtonProps extends TouchableOpacityProps {
 }
 
 /** Renders a styled, theme-aware button with optional loading state. */
-//
 export const Button: React.FC<ButtonProps> = ({
   title,
   variant = 'primary',
@@ -29,27 +27,17 @@ export const Button: React.FC<ButtonProps> = ({
   onPress,
   ...props
 }) => {
-  //
   const isDisabled = disabled || loading;
-  //
   const primary = useThemeColour({}, 'primary');
-  //
   const secondary = useThemeColour({}, 'secondary');
-  //
   const success = useThemeColour({}, 'success');
-  //
   const danger = useThemeColour({}, 'danger');
-  //
   const warning = useThemeColour({}, 'warning');
-  //
-  const info = useThemeColour({}, 'info');
-  //
+  const infoColour = useThemeColour({}, 'info');
   const textColour = useThemeColour({}, 'text');
 
   /** Resolves container style for the selected variant, size, and disabled state. */
-  //
   const getButtonStyle = (): ViewStyle => {
-    //
     let backgroundColor: string;
     
     // Variant styles
@@ -70,7 +58,7 @@ export const Button: React.FC<ButtonProps> = ({
         backgroundColor = warning;
         break;
       case 'info':
-        backgroundColor = info;
+        backgroundColor = infoColour;
         break;
       default:
         backgroundColor = primary;
@@ -78,7 +66,6 @@ export const Button: React.FC<ButtonProps> = ({
     }
 
     // Size styles
-    //
     let sizeStyle: ViewStyle = {};
     switch (size) {
       case 'small':
@@ -121,10 +108,8 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   /** Resolves text style for the selected variant and size. */
-  //
   const getTextStyle = (): TextStyle => {
     // Size-specific text styles
-    //
     let fontSize: number;
     switch (size) {
       case 'small':
@@ -139,7 +124,6 @@ export const Button: React.FC<ButtonProps> = ({
     }
 
     // Variant-specific text colors
-    //
     let color: string;
     switch (variant) {
       case 'warning':
@@ -157,7 +141,6 @@ export const Button: React.FC<ButtonProps> = ({
     };
   };
 
-  //
   return (
     <TouchableOpacity
       style={[getButtonStyle(), style]}
@@ -178,5 +161,4 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-//
 export default Button;

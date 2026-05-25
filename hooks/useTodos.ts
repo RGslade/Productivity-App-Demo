@@ -3,7 +3,6 @@ import { todoService } from '../services/todoService';
 import { ToDoItem, CreateToDoRequest, UpdateToDoRequest, CreateCategoryRequest, UpdateCategoryRequest } from '../types/todo';
 
 // Query keys for React Query cache management
-//
 export const todoKeys = {
   all: ['todos'] as const,
   lists: () => [...todoKeys.all, 'list'] as const,
@@ -15,33 +14,27 @@ export const todoKeys = {
 };
 
 // Hook for getting all ToDo items
-//
 export const useTodos = () => {
-  //
   const queryClient = useQueryClient();
 
-  //
   const todosQuery = useQuery({
     queryKey: todoKeys.lists(),
     queryFn: () => todoService.getToDoItems(),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  //
   const categoriesQuery = useQuery({
     queryKey: todoKeys.categories(),
     queryFn: () => todoService.getCategories(),
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  //
   const premiumCategoriesQuery = useQuery({
     queryKey: todoKeys.premiumCategories(),
     queryFn: () => todoService.getPremiumCategories(),
     staleTime: 10 * 60 * 1000,
   });
 
-  //
   const createMutation = useMutation({
     mutationFn: (data: CreateToDoRequest) => todoService.createToDoItem(data),
     onSuccess: () => {
@@ -52,7 +45,6 @@ export const useTodos = () => {
     },
   });
 
-  //
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateToDoRequest }) =>
       todoService.updateToDoItem(id, data),
@@ -65,7 +57,6 @@ export const useTodos = () => {
     },
   });
 
-  //
   const deleteMutation = useMutation({
     mutationFn: (id:number) => todoService.deleteToDoItem(id),
     onSuccess: (_, id) => {
@@ -98,7 +89,6 @@ export const useTodos = () => {
 };
 
 // Hook for getting specific ToDo item
-//
 export const useTodo = (id: number) => {
   return useQuery({
     queryKey: todoKeys.detail(id),
@@ -109,7 +99,6 @@ export const useTodo = (id: number) => {
 };
 
 // Hook for getting categories
-//
 export const useCategories = () => {
   return useQuery({
     queryKey: todoKeys.categories(),
@@ -119,9 +108,7 @@ export const useCategories = () => {
 };
 
 // Hook for creating ToDo item
-//
 export const useCreateTodo = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateToDoRequest) => todoService.createToDoItem(data),
@@ -136,9 +123,7 @@ export const useCreateTodo = () => {
 };
 
 // Hook for updating ToDo item
-//
 export const useUpdateTodo = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateToDoRequest }) =>
@@ -157,9 +142,7 @@ export const useUpdateTodo = () => {
 };
 
 // Hook for deleting ToDo item
-//
 export const useDeleteTodo = () => {
-  //
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -178,9 +161,7 @@ export const useDeleteTodo = () => {
 };
 
 // Hook for creating category
-//
 export const useCreateCategory = () => {
-  //
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -196,9 +177,7 @@ export const useCreateCategory = () => {
 };
 
 // Hook for updating category
-//
 export const useUpdateCategory = () => {
-  //
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -216,9 +195,7 @@ export const useUpdateCategory = () => {
 };
 
 // Hook for deleting category
-//
 export const useDeleteCategory = () => {
-  //
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -235,9 +212,7 @@ export const useDeleteCategory = () => {
 };
 
 // Hook for ensuring default categories exist
-//
 export const useEnsureDefaultCategories = () => {
-  //
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -253,9 +228,7 @@ export const useEnsureDefaultCategories = () => {
 };
 
 // Hook for ToDo statistics (derived from todos data)
-//
 export const useTodoStats = () => {
-  //
   const { todos: todos = [] } = useTodos();
 
   return {
@@ -269,14 +242,11 @@ export const useTodoStats = () => {
 };
 
 // Hook for toggling todo completion status
-//
 export const useToggleTodo = () => {
-  //
   const updateTodo = useUpdateTodo();
 
   return useMutation({
     mutationFn: (todo: ToDoItem) => {
-      //
       const updatedData: UpdateToDoRequest = {
         title: todo.title,
         description: todo.description,

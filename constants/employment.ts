@@ -1,4 +1,3 @@
-//
 export const EMPLOYMENT_STATUSES = [
   'Unemployed',
   'Full Time',
@@ -11,5 +10,4 @@ export const EMPLOYMENT_STATUSES = [
   'Retired',
 ] as const;
 
-//
 export type EmploymentStatus = typeof EMPLOYMENT_STATUSES[number];

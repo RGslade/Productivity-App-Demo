@@ -4,7 +4,6 @@ import { UserSettingsToDo, UserSettingsTransactions, UserSettingsAccount, UserSe
 import { useThemeContext } from '@/providers/ThemeProvider';
 
 // Query keys for React Query cache management
-//
 export const settingsKeys = {
   all: ['settings'] as const,
   todo: () => [...settingsKeys.all, 'todo'] as const,
@@ -17,7 +16,6 @@ export const settingsKeys = {
 };
 
 // Hook for getting ToDo settings
-//
 export const useToDoSettings = () => {
   return useQuery({
     queryKey: settingsKeys.todo(),
@@ -27,9 +25,7 @@ export const useToDoSettings = () => {
 };
 
 // Hook for updating ToDo settings
-//
 export const useUpdateToDoSettings = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (settings: Partial<UserSettingsToDo>) =>
@@ -48,7 +44,6 @@ export const useUpdateToDoSettings = () => {
 };
 
 // Hook for getting transaction settings
-//
 export const useTransactionSettings = () => {
   return useQuery({
     queryKey: settingsKeys.transactions(),
@@ -58,9 +53,7 @@ export const useTransactionSettings = () => {
 };
 
 // Hook for updating transaction settings
-//
 export const useUpdateTransactionSettings = () => {
-  //
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -80,7 +73,6 @@ export const useUpdateTransactionSettings = () => {
 };
 
 // Hook for getting account settings
-//
 export const useAccountSettings = () => {
   return useQuery({
     queryKey: settingsKeys.account(),
@@ -90,9 +82,7 @@ export const useAccountSettings = () => {
 };
 
 // Hook for updating account settings
-//
 export const useUpdateAccountSettings = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (settings: Partial<UserSettingsAccount>) =>
@@ -111,7 +101,6 @@ export const useUpdateAccountSettings = () => {
 };
 
 // Hook for getting theme mode (light, dark, system)
-//
 export const useThemeMode = () => {
   return useQuery({
     queryKey: settingsKeys.theme(),
@@ -121,9 +110,7 @@ export const useThemeMode = () => {
 };
 
 // Hook for updating theme mode
-//
 export const useUpdateThemeMode = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (theme: AppTheme) => settingsService.setTheme(theme),
@@ -138,7 +125,6 @@ export const useUpdateThemeMode = () => {
 };
 
 // Hook for getting default font
-//
 export const useDefaultFont = () => {
   return useQuery({
     queryKey: [...settingsKeys.all, 'defaultFont'],
@@ -148,9 +134,7 @@ export const useDefaultFont = () => {
 };
 
 // Hook for updating default font
-//
 export const useUpdateDefaultFont = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (font: string) => settingsService.setDefaultFont(font),
@@ -165,7 +149,6 @@ export const useUpdateDefaultFont = () => {
 };
 
 // Hook for getting all settings at once
-//
 export const useAllSettings = () => {
   return useQuery({
     queryKey: settingsKeys.allSettings(),
@@ -175,7 +158,6 @@ export const useAllSettings = () => {
 };
 
 // Hook for getting display settings
-//
 export const useDisplaySettings = () => { //Do I need these individual ones, if getAllSettings is a thing, or does something make use of these individual ones.
   return useQuery({
     queryKey: [...settingsKeys.all, 'display'],
@@ -185,9 +167,7 @@ export const useDisplaySettings = () => { //Do I need these individual ones, if 
 };
 
 // Hook for updating display settings
-//
 export const useUpdateDisplaySettings = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (updates: Partial<Omit<UserSettingsDisplay, 'id' | 'user_id' | 'created_at' | 'updated_at'>>) =>
@@ -204,7 +184,6 @@ export const useUpdateDisplaySettings = () => {
   });
 };
 
-//
 export const useChatBotSettings = () => {
   return useQuery({
     queryKey: [...settingsKeys.all, 'chatBot'],
@@ -213,7 +192,6 @@ export const useChatBotSettings = () => {
   });
 }
 
-//
 export const useLifeNestTermsVersion = () => {
   return useQuery({
     queryKey: settingsKeys.lifeNestTermsVersion(),
@@ -222,9 +200,7 @@ export const useLifeNestTermsVersion = () => {
   });
 };
 
-//
 export const useUpdateChatBotSettings = () => {
-  //
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (updates: Partial<Omit<UserSettingsChatBot, 'id' | 'user_id' | 'created_at' | 'updated_at'>>) =>
@@ -241,13 +217,9 @@ export const useUpdateChatBotSettings = () => {
 };
 
 // Main settings hook that combines common functionality
-//
 export const useSettings = () => {
-  //
   const { data: allSettings, isLoading, error } = useAllSettings();
-  //
   const { theme } = useThemeContext();
-  //
   const { data: defaultFont } = useDefaultFont();
   return {
     settings: allSettings,

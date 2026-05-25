@@ -23,7 +23,6 @@ import {
 } from "@/services/subscriptionService";
 import { LifeNestMonthlyUsageSummary } from "@/types/chatBot";
 
-//
 type BusyAction =
   | "restore"
   | "customer-center"
@@ -31,21 +30,15 @@ type BusyAction =
   | null;
 
 /** Resolves the app product kind from a RevenueCat package. */
-//
 function getPackageKind(pkg: PurchasesPackage) {
-  //
   const packageType = String((pkg as { packageType?: string }).packageType ?? "").toLowerCase();
-  //
   if (packageType.includes("annual")) return "yearly";
-  //
   if (packageType.includes("month")) return "monthly";
   return getRevenueCatPackageKind(pkg);
 }
 
 /** Returns true when an error came from missing or invalid RevenueCat configuration. */
-//
 function isRevenueCatConfigError(message: string) {
-  //
   return (
     message.includes("REVENUECAT_API_KEY_MISSING") ||
     message.includes("REVENUECAT_CONFIG_FETCH_FAILED") ||
@@ -55,21 +48,17 @@ function isRevenueCatConfigError(message: string) {
 }
 
 /** Converts a RevenueCat config error into user-facing guidance. */
-//
 function getRevenueCatConfigMessage(message: string) {
-  //
   if (message.includes("REVENUECAT_API_KEY_MISSING")) {
     return __DEV__
       ? "RevenueCat is missing. Add the local development SDK key or configure server-side billing secrets."
       : "RevenueCat is missing from server-side billing configuration.";
   }
 
-  //
   if (message.includes("REVENUECAT_API_KEY_PLATFORM_MISMATCH")) {
     return "The RevenueCat SDK key does not match this device platform. Check the local development key or server-side billing secrets.";
   }
 
-  //
   if (message.includes("REVENUECAT_API_KEY_TEST_KEY_IN_PRODUCTION")) {
     return "A RevenueCat test key was returned in a production build. Check server-side billing secrets.";
   }
@@ -77,28 +66,17 @@ function getRevenueCatConfigMessage(message: string) {
   return "RevenueCat config could not be loaded. Check the local development key or server-side billing configuration.";
 }
 
-//
 export default function SubscribeScreen() {
-  //
   const router = useRouter();
-  //
   const surface = useThemeColour({}, "surface");
-  //
   const cardBackground = useThemeColour({}, "cardBackground");
-  //
   const primary = useThemeColour({}, "primary");
-  //
   const warning = useThemeColour({}, "warning");
-  //
   const border = useThemeColour({}, "border");
-  //
   const success = useThemeColour({}, "success");
-  //
   const { data: transactionSettings } = useTransactionSettings();
-  //
   const preferredCurrencySymbol = transactionSettings?.preferred_currency || DEFAULT_CURRENCY_SYMBOL;
 
-  //
   const {
     isConfigured,
     configurationError,
@@ -114,87 +92,61 @@ export default function SubscribeScreen() {
     presentCustomerCenter,
   } = useSubscriptions();
 
-  //
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
-  //
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
-  //
   const [lifeNestUsage, setLifeNestUsage] = useState<LifeNestMonthlyUsageSummary | null>(null);
-  //
   const busyActionRef = useRef<BusyAction>(null);
-  //
   const initialOfferingsRetryRef = useRef(false);
-  //
   const hasShownEntryInterstitialRef = useRef(false);
 
-  //
   const monthlyPackage = useMemo(() => findPackageByKind(offerings, "monthly"), [offerings]);
-  //
   const yearlyPackage = useMemo(() => findPackageByKind(offerings, "yearly"), [offerings]);
-  //
   const token100Package = useMemo(() => findPackageByKind(offerings, "lifenest_tokens_100"), [offerings]);
-  //
   const token500Package = useMemo(() => findPackageByKind(offerings, "lifenest_tokens_500"), [offerings]);
-  //
   const token1000Package = useMemo(() => findPackageByKind(offerings, "lifenest_tokens_1000"), [offerings]);
 
-  //
   const planPackages = useMemo(
     () => [yearlyPackage, monthlyPackage].filter(Boolean) as PurchasesPackage[],
     [monthlyPackage, yearlyPackage]
   );
-  //
   const tokenPackages = useMemo(
     () => [token100Package, token500Package, token1000Package].filter(Boolean) as PurchasesPackage[],
     [token100Package, token500Package, token1000Package]
   );
-  //
   const isPremiumSubscriber = deriveSubscriptionProfile(customerInfo).isPremium;
-  //
   const remainingIncludedTokens = Math.max(
     (lifeNestUsage?.monthlyTokenAllowance ?? 0) - (lifeNestUsage?.monthlyTokensUsed ?? 0),
     0
   );
-  //
   const availablePurchasedTokens = lifeNestUsage?.purchasedTokensBalance ?? lifeNestTokenBalance;
 
-  //
   useEffect(() => {
-    //
     if (hasShownEntryInterstitialRef.current) return;
     hasShownEntryInterstitialRef.current = true;
 
-    //
     if (!customerInfo) {
       showGlobalInterstitialAd();
       return;
     }
 
-    //
     const profile = deriveSubscriptionProfile(customerInfo);
-    //
     if (!profile.isAdFree) {
       showGlobalInterstitialAd();
     }
   }, [customerInfo]);
 
-  //
   useEffect(() => {
-    //
     if (planPackages.length === 0) {
       setSelectedPackageId(null);
       return;
     }
-    //
     const hasCurrentSelection = selectedPackageId && planPackages.some((pkg) => pkg.identifier === selectedPackageId);
-    //
     if (hasCurrentSelection) return;
     setSelectedPackageId(planPackages[0].identifier);
   }, [planPackages, selectedPackageId]);
 
   useFocusEffect(
     React.useCallback(() => {
-      //
       if (!isConfigured) return;
       void Promise.allSettled([refreshCustomerInfo(), refreshOfferings()]);
       void lifeNestService.getCurrentMonthlyUsageSummary()
@@ -203,51 +155,36 @@ export default function SubscribeScreen() {
     }, [isConfigured, refreshCustomerInfo, refreshOfferings])
   );
 
-  //
   useEffect(() => {
-    //
     if (!isConfigured) {
       initialOfferingsRetryRef.current = false;
       return;
     }
-    //
     if (planPackages.length > 0) return;
-    //
     if (busyAction) return;
-    //
     if (initialOfferingsRetryRef.current) return;
 
     initialOfferingsRetryRef.current = true;
     void Promise.allSettled([refreshCustomerInfo(), refreshOfferings()]);
   }, [busyAction, isConfigured, planPackages.length, refreshCustomerInfo, refreshOfferings]);
 
-  //
   const selectedPackage =
     planPackages.find((pkg) => pkg.identifier === selectedPackageId) ?? planPackages[0] ?? null;
 
-  //
   const selectedKind = selectedPackage ? getPackageKind(selectedPackage) : null;
 
-  //
   const savingsPercent = useMemo(() => {
-    //
     if (!monthlyPackage || !yearlyPackage) return null;
-    //
     const monthlyTotal = Number(monthlyPackage.product.price) * 12;
-    //
     const yearlyTotal = Number(yearlyPackage.product.price);
-    //
     if (!monthlyTotal || Number.isNaN(monthlyTotal) || Number.isNaN(yearlyTotal) || yearlyTotal >= monthlyTotal) {
       return null;
     }
     return Math.round(((monthlyTotal - yearlyTotal) / monthlyTotal) * 100);
   }, [monthlyPackage, yearlyPackage]);
 
-  //
   const yearlyMonthlyEquivalent = useMemo(() => {
-    //
     if (!yearlyPackage) return null;
-    //
     const monthlyEquivalentProduct = {
       ...yearlyPackage.product,
       price: Number(yearlyPackage.product.price) / 12,
@@ -256,7 +193,6 @@ export default function SubscribeScreen() {
     return formatPackagePriceForPreferredCurrency(monthlyEquivalentProduct, preferredCurrencySymbol).displayPrice;
   }, [preferredCurrencySymbol, yearlyPackage]);
 
-  //
   const showManageButton = Boolean(
     deriveSubscriptionProfile(customerInfo).managementUrl ||
     deriveSubscriptionProfile(customerInfo).isPremium ||
@@ -264,9 +200,7 @@ export default function SubscribeScreen() {
   );
 
   /** Shows a consistent alert when the store is blocked or billing is unavailable. */
-  //
   const handleBlockedPurchasesAlert = () => {
-    //
     if (configurationError) {
       Alert.alert("Purchases unavailable", getRevenueCatConfigMessage(configurationError));
       return;
@@ -279,20 +213,15 @@ export default function SubscribeScreen() {
   };
 
   /** Normalises purchase-related errors into user-facing alerts. */
-  //
   const handleError = (error: unknown) => {
-    //
     const message = error instanceof Error ? error.message : "Unknown error";
-    //
     const lower = message.toLowerCase();
 
-    //
     if (isRevenueCatConfigError(message)) {
       Alert.alert("RevenueCat config missing", getRevenueCatConfigMessage(message));
       return;
     }
 
-    //
     if (
       lower.includes("purchase_not_allowed") ||
       lower.includes("billing unavailable") ||
@@ -304,7 +233,6 @@ export default function SubscribeScreen() {
       return;
     }
 
-    //
     if (lower.includes("cancel")) {
       return;
     }
@@ -313,12 +241,9 @@ export default function SubscribeScreen() {
   };
 
   /** Wraps one async subscribe action with shared loading and error handling. */
-  //
   const runAction = async (action: BusyAction, task: () => Promise<void>) => {
-    //
     if (busyActionRef.current) return;
 
-    //
     try {
       busyActionRef.current = action;
       setBusyAction(action);
@@ -333,30 +258,22 @@ export default function SubscribeScreen() {
   };
 
   /** Starts the purchase flow for the currently selected package. */
-  //
   const handlePurchaseSelection = async () => {
-    //
     if (!selectedPackage) {
       Alert.alert("No option selected", "Choose a subscription option first.");
       return;
     }
 
-    //
     if (!isConfigured) {
       handleBlockedPurchasesAlert();
       return;
     }
 
     await runAction(`purchase:${selectedPackage.identifier}`, async () => {
-      //
       const { identifier } = selectedPackage;
-      //
-      const info = await purchasePackage(selectedPackage);
-      //
-      const profile = deriveSubscriptionProfile(info);
-      //
+      const purchasedCustomerInfo = await purchasePackage(selectedPackage);
+      const profile = deriveSubscriptionProfile(purchasedCustomerInfo);
       const purchaseTitle = profile.isAdFree ? "Purchase successful" : "Purchase complete";
-      //
       const purchaseMessage = profile.isAdFree
         ? "Your purchase is now active."
         : "Purchase was completed but not active yet. Check RevenueCat mapping.";
@@ -368,25 +285,19 @@ export default function SubscribeScreen() {
   };
 
   /** Starts the purchase flow for one LifeNest token bundle. */
-  //
   const handleTokenPurchase = async (pkg: PurchasesPackage) => {
-    //
     if (!isConfigured) {
       handleBlockedPurchasesAlert();
       return;
     }
 
     await runAction(`purchase:${pkg.identifier}`, async () => {
-      //
       const kind = getPackageKind(pkg);
-      //
       const tokenAmount = getLifeNestTokenAmountForProductKind(kind);
-      //
       if (tokenAmount <= 0) {
         throw new Error(`Unable to determine token amount for package ${pkg.product.identifier}.`);
       }
       await purchasePackage(pkg);
-      //
       const summary = await refreshPurchaseState();
       acknowledgePurchase(
         "Tokens added",
@@ -396,18 +307,14 @@ export default function SubscribeScreen() {
   };
 
   /** Restores store purchases onto the current account. */
-  //
   const handleRestore = async () => {
     await runAction("restore", async () => {
-      //
-      const info = await restorePurchases();
-      //
-      const profile = deriveSubscriptionProfile(info);
+      const restoredCustomerInfo = await restorePurchases();
+      const profile = deriveSubscriptionProfile(restoredCustomerInfo);
       await lifeNestService.syncSubscriptionUsagePeriod({
         isSubscriptionActive: profile.isPremium && profile.status === "active",
         subscriptionStartedAt: profile.subscriptionStartedAt,
       });
-      //
       const summary = await lifeNestService.getCurrentMonthlyUsageSummary();
       setLifeNestUsage(summary);
       Alert.alert(
@@ -420,7 +327,6 @@ export default function SubscribeScreen() {
   };
 
   /** Opens RevenueCat customer center for subscription management. */
-  //
   const handleCustomerCenter = async () => {
     await runAction("customer-center", async () => {
       await presentCustomerCenter();
@@ -429,18 +335,14 @@ export default function SubscribeScreen() {
   };
 
   /** Refreshes RevenueCat and LifeNest state after a purchase-related change. */
-  //
   const refreshPurchaseState = async () => {
-    //
     const [customerInfoResult] = await Promise.allSettled([
       refreshCustomerInfo(),
       refreshOfferings(),
       refreshVirtualCurrencies(),
     ]);
 
-    //
     if (customerInfoResult.status === "fulfilled" && customerInfoResult.value) {
-      //
       const profile = deriveSubscriptionProfile(customerInfoResult.value);
       await lifeNestService.syncSubscriptionUsagePeriod({
         isSubscriptionActive: profile.isPremium && profile.status === "active",
@@ -448,14 +350,12 @@ export default function SubscribeScreen() {
       });
     }
 
-    //
     const summary = await lifeNestService.getCurrentMonthlyUsageSummary();
     setLifeNestUsage(summary);
     return summary;
   };
 
   /** Shows purchase confirmation and returns the user to the previous screen when possible. */
-  //
   const acknowledgePurchase = (
     title: string,
     message: string,
@@ -465,17 +365,15 @@ export default function SubscribeScreen() {
       {
         text: "OK",
         onPress: () => {
-          //
           try {
             onBeforeNavigate?.();
-            //
             if (router.canGoBack()) {
               router.back();
               return;
             }
             router.replace("/(tabs)");
           } catch (navigationError) {
-            console.error('Operation failed');
+            console.error('Purchase acknowledgement navigation failed', navigationError);
           }
         },
       },
@@ -483,16 +381,12 @@ export default function SubscribeScreen() {
   };
 
   /** Chooses the CTA copy for the currently highlighted plan. */
-  //
   const getPrimaryButtonLabel = () => {
-    //
     if (selectedKind === "monthly") return "Choose Monthly";
-    //
     if (selectedKind === "yearly") return "Choose Yearly";
     return "Choose option";
   };
 
-  //
   const premiumBenefits = [
     {
       title: "LifeNest AI assistant access",
@@ -512,9 +406,7 @@ export default function SubscribeScreen() {
     },
   ];
 
-  //
   if (!isSupported) {
-    //
     return (
       <View style={styles.unsupportedContainer}>
         <ThemedText type="title">LifeNest Premium</ThemedText>
@@ -525,7 +417,6 @@ export default function SubscribeScreen() {
     );
   }
 
-  //
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.hero}>
@@ -548,23 +439,17 @@ export default function SubscribeScreen() {
         <View style={styles.planList}>
           {planPackages.length > 0 ? (
             planPackages.map((pkg) => {
-              //
               const kind = getPackageKind(pkg);
-              //
               const isSelected = pkg.identifier === selectedPackageId;
-              //
               const isYearly = kind === "yearly";
-              //
               const productLabel =
                 kind === "yearly"
                   ? REVENUECAT_PRODUCT_LABELS.yearly
                   : kind === "monthly"
                     ? REVENUECAT_PRODUCT_LABELS.monthly
                     : "Remove Ads";
-              //
               const pricing = formatPackagePriceForPreferredCurrency(pkg.product, preferredCurrencySymbol);
 
-              //
               return (
                 <TouchableOpacity
                   key={pkg.identifier}
@@ -674,14 +559,10 @@ export default function SubscribeScreen() {
           {tokenPackages.length > 0 ? (
             <View style={styles.planList}>
               {tokenPackages.map((pkg) => {
-                //
                 const kind = getPackageKind(pkg);
-                //
                 const tokenAmount = getLifeNestTokenAmountForProductKind(kind);
-                //
                 const pricing = formatPackagePriceForPreferredCurrency(pkg.product, preferredCurrencySymbol);
 
-                //
                 return (
                   <Card key={pkg.identifier} style={styles.tokenCard}>
                     <View style={styles.planHeader}>
@@ -729,7 +610,6 @@ export default function SubscribeScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,

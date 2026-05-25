@@ -9,33 +9,22 @@ import { useEducationGrades } from '@/hooks/useEducationGrades';
 import { useThemeColour } from '@/hooks/useThemeColour';
 import { Colours } from '@/constants/Colours';
 
-//
 const formatDate = (date?: string | null) => {
-  //
   if (!date) return 'No date added';
-  //
   const parsed = new Date(date);
-  //
   if (Number.isNaN(parsed.getTime())) return 'No date added';
   return parsed.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 };
 
-//
 export default function EducationGradesScreen() {
-  //
   const [refreshing, setRefreshing] = useState(false);
-  //
   const { grades, loading, fetchGrades } = useEducationGrades();
-  //
   const backgroundColour = useThemeColour({}, 'background');
 
-  //
   const sortedGrades = useMemo(() => [...grades], [grades]);
 
-  //
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    //
     try {
       await fetchGrades();
     } finally {
@@ -43,9 +32,7 @@ export default function EducationGradesScreen() {
     }
   }, [fetchGrades]);
 
-  //
   if (loading && grades.length === 0) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
@@ -53,7 +40,6 @@ export default function EducationGradesScreen() {
     );
   }
 
-  //
   return (
     <ThemedView style={[styles.container, { backgroundColor: backgroundColour }]}>
       <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} contentContainerStyle={styles.content}>
@@ -87,7 +73,6 @@ export default function EducationGradesScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 96 },

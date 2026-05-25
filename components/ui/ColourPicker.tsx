@@ -4,7 +4,6 @@ import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from '
 import { Colours } from '../../constants/Colours';
 import { GlobalStyles } from '../../constants/Styles';
 
-//
 interface ColourPickerProps {
   label?: string;
   value: string;
@@ -18,7 +17,6 @@ interface ColourPickerProps {
   helperText?: string;
 }
 
-//
 const DEFAULT_COLORS = [
   '#3B82F6',
   '#10B981',
@@ -30,7 +28,6 @@ const DEFAULT_COLORS = [
 ];
 
 /** Renders a color swatch picker used in settings forms. */
-//
 export const ColourPicker: React.FC<ColourPickerProps> = ({
   label,
   value,
@@ -43,7 +40,6 @@ export const ColourPicker: React.FC<ColourPickerProps> = ({
   errorStyle,
   helperText,
 }) => {
-  //
   return (
     <View style={[styles.container, viewStyle]}>
       {label && (
@@ -54,9 +50,7 @@ export const ColourPicker: React.FC<ColourPickerProps> = ({
 
       <View style={styles.row}>
         {colours.map((colour) => {
-          //
           const selected = colour === value;
-          //
           return (
             <TouchableOpacity
               key={colour}
@@ -86,7 +80,6 @@ export const ColourPicker: React.FC<ColourPickerProps> = ({
   );
 };
 
-//
 const styles = StyleSheet.create({
   container: {
     marginBottom: 12,
@@ -122,6 +115,5 @@ const styles = StyleSheet.create({
   },
 });
 
-//
 export default ColourPicker;
 

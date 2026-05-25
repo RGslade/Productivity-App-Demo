@@ -4,17 +4,14 @@ import * as Linking from 'expo-linking';
 import { getSession } from '@/lib/supabase';
 import { userService } from './userService';
 
-//
 type AuthErrorContext = 'login' | 'register' | 'changePassword' | 'resetPassword' | 'verifyRecoveryCode';
 
-//
 type AuthAlertContent = {
   code: string;
   title: string;
   message: string;
 };
 
-//
 type ErrorWithCode = Error & {
   code?: string;
   status?: number;
@@ -22,11 +19,8 @@ type ErrorWithCode = Error & {
 };
 
 /** Masks an email address for auth logs while keeping enough context to identify the affected account. */
-//
 const maskEmailForLog = (value: string): string => {
-  //
   const [localPart = '', domain = ''] = value.split('@');
-  //
   const maskedLocal = localPart.length <= 2
     ? `${localPart.charAt(0) || '*'}***`
     : `${localPart.slice(0, 2)}***`;
@@ -34,7 +28,6 @@ const maskEmailForLog = (value: string): string => {
   return domain ? `${maskedLocal}@${domain}` : maskedLocal;
 };
 
-//
 const AUTH_ERROR_ALERTS: Record<string, Omit<AuthAlertContent, 'code'>> = {
   INVALID_CREDENTIALS: {
     title: 'Login Failed',
@@ -98,28 +91,21 @@ const AUTH_ERROR_ALERTS: Record<string, Omit<AuthAlertContent, 'code'>> = {
   },
 };
 
-//
 const getErrorText = (error: unknown) => {
-  //
   if (!error) {
     return '';
   }
 
-  //
   if (typeof error === 'string') {
     return error.toLowerCase();
   }
 
-  //
   if (error instanceof Error) {
-    //
     const err = error as ErrorWithCode;
     return [err.code, err.message, err.name].filter(Boolean).join(' ').toLowerCase();
   }
 
-  //
   if (typeof error === 'object') {
-    //
     const err = error as { code?: string; message?: string; error_description?: string; name?: string };
     return [err.code, err.message, err.error_description, err.name].filter(Boolean).join(' ').toLowerCase();
   }
@@ -127,19 +113,15 @@ const getErrorText = (error: unknown) => {
   return '';
 };
 
-//
 const getErrorStatus = (error: unknown): number | undefined => {
-  //
   if (!error || typeof error !== 'object') {
     return undefined;
   }
 
-  //
   const { status } = error as { status?: number };
   return typeof status === 'number' ? status : undefined;
 };
 
-//
 const getFallbackCode = (context: AuthErrorContext) => {
   switch (context) {
     case 'register':
@@ -156,59 +138,46 @@ const getFallbackCode = (context: AuthErrorContext) => {
   }
 };
 
-//
 const normalizeAuthErrorCode = (error: unknown, context: AuthErrorContext): string => {
-  //
   const text = getErrorText(error);
-  //
   const status = getErrorStatus(error);
 
-  //
   if (text.includes('invalid_credentials') || text.includes('invalid login credentials') || text.includes('incorrect email or password')) {
     return 'INVALID_CREDENTIALS';
   }
 
-  //
   if (text.includes('email_not_confirmed') || text.includes('email not confirmed') || text.includes('verify your email')) {
     return 'EMAIL_NOT_CONFIRMED';
   }
 
-  //
   if (text.includes('already registered') || text.includes('user already registered') || text.includes('already exists')) {
     return 'USER_ALREADY_EXISTS';
   }
 
-  //
   if (text.includes('weak password') || text.includes('password should') || text.includes('password is too weak')) {
     return 'WEAK_PASSWORD';
   }
 
-  //
   if (text.includes('too many requests') || text.includes('rate limit') || text.includes('over_request_rate_limit') || text.includes('over_email_send_rate_limit')) {
     return context === 'resetPassword' ? 'PASSWORD_RESET_LIMIT' : 'TOO_MANY_REQUESTS';
   }
 
-  //
   if (text.includes('failed to fetch') || text.includes('network request failed') || text.includes('network error') || text.includes('load failed')) {
     return 'NETWORK_ERROR';
   }
 
-  //
   if (status && status >= 500) {
     return 'SERVICE_UNAVAILABLE';
   }
 
-  //
   if (text.includes('service unavailable') || text.includes('internal server error') || text.includes('bad gateway') || text.includes('gateway timeout')) {
     return 'SERVICE_UNAVAILABLE';
   }
 
-  //
   if (text.includes('otp') || text.includes('token') || text.includes('invalid_grant') || text.includes('expired')) {
     return context === 'verifyRecoveryCode' ? 'INVALID_RECOVERY_CODE' : getFallbackCode(context);
   }
 
-  //
   if (text.includes('not authenticated')) {
     return 'NOT_AUTHENTICATED';
   }
@@ -216,9 +185,7 @@ const normalizeAuthErrorCode = (error: unknown, context: AuthErrorContext): stri
   return getFallbackCode(context);
 };
 
-//
 const createAuthError = (code: string, cause?: unknown): ErrorWithCode => {
-  //
   const error = new Error(code) as ErrorWithCode;
   error.code = code;
   error.cause = cause;
@@ -233,7 +200,6 @@ export const getAuthErrorAlert = (error: unknown, context: AuthErrorContext = 'l
   return {code, title: alert.title, message: alert.message,};
 };
 
-//
 class AuthService {
   private buildProfilePayload(userData: RegisterRequest) {
     return {
@@ -262,20 +228,15 @@ class AuthService {
 
   /** Signs the user in and reports whether the account is fully usable or still missing profile data. */
   async login(credentials: LoginRequest): Promise<LoginResult> {
-    //
     const maskedEmail = maskEmailForLog(credentials.email);
 
-    //
     try {
-      //
       const authUser = await databaseService.signInWithPassword(
         credentials.email,
         credentials.password
       );
-      //
       const profile = await userService.getProfileByAuthUserId(authUser.id);
 
-      //
       if (!userService.isProfileComplete(profile)) {
         console.warn('[Auth][AuthService] Login succeeded but account profile is incomplete', {
           email: maskedEmail,
@@ -301,10 +262,8 @@ class AuthService {
 
   /** Creates a brand-new auth account and writes the first profile row. */
   async register(userData: RegisterRequest): Promise<void> {
-    //
     try {
       await databaseService.signOut();
-      //
       const { error: signUpError } = await databaseService.signUp(userData.email, userData.password, {
         data: {
           first_name: userData.firstName,
@@ -316,7 +275,6 @@ class AuthService {
           privacy_policy_accepted: userData.privacy_policy_accepted,
         },
       });
-      //
       if (signUpError) {
         console.error('authService.register.signUp', signUpError);
         throw createAuthError(normalizeAuthErrorCode(signUpError, 'register'), signUpError);
@@ -333,7 +291,6 @@ class AuthService {
 
   /** Completes a previously created auth account by writing the missing profile row. */
   async completeAccount(userData: RegisterRequest): Promise<void> {
-    //
     try {
       await databaseService.updateUser({
         data: {
@@ -355,18 +312,14 @@ class AuthService {
 
   /** Starts Google OAuth and returns the provider URL that should be opened by the app. */
   async startGoogleOAuth(): Promise<string> {
-    //
     const redirectTo = Linking.createURL('auth/callback');
     return databaseService.signInWithOAuth('google', redirectTo);
   }
 
   /** Exchanges an OAuth redirect URL for a backend session. */
   async completeOAuthRedirect(url: string): Promise<void> {
-    //
     const parsedUrl = Linking.parse(url);
-    //
     const code = typeof parsedUrl.queryParams?.code === 'string' ? parsedUrl.queryParams.code : '';
-    //
     if (!code) {
       throw createAuthError('UNKNOWN_LOGIN_ERROR', new Error('OAuth code missing'));
     }
@@ -374,19 +327,14 @@ class AuthService {
   }
 
   async changePassword(data: ChangePasswordRequest): Promise<void> {
-    //
     const { data: sessionData } = await getSession();
-    //
     const currentUser = sessionData.session?.user;
 
-    //
     if (!currentUser?.email) {
       throw createAuthError('NOT_AUTHENTICATED');
     }
 
-    //
     try {
-      //
       if (data.currentPassword) {
         await databaseService.signInWithPassword(currentUser.email, data.currentPassword);
       }
@@ -401,7 +349,6 @@ class AuthService {
   }
 
   async resetPassword(email: string, redirectTo?: string): Promise<void> {
-    //
     try {
       await databaseService.resetPasswordForEmail(email, redirectTo);
     } catch (error) {
@@ -410,7 +357,6 @@ class AuthService {
     }
   }
   async verifyRecoveryCode(email: string, token: string): Promise<void> {
-    //
     try {
       await databaseService.verifyRecoveryCode(email, token);
     } catch (error) {
@@ -421,7 +367,5 @@ class AuthService {
 
 }
 
-//
 export const authService = new AuthService();
-//
 export default authService;

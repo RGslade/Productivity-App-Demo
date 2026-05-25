@@ -1,4 +1,3 @@
-//
 export const Colours = {
   light: {
     // Primary colors
@@ -96,13 +95,11 @@ export const Colours = {
 };
 
 // Color utility functions
-//
 export const getColourForTheme = (colourName: keyof typeof Colours.light, theme: 'light' | 'dark' = 'light') => {
   return Colours[theme][colourName];
 };
 
 // Brand colors (theme-independent)
-//
 export const BrandColours = {
   brand: '#1769F5',
   brandLight: '#DDEBFF',
@@ -139,5 +136,4 @@ export const BrandColours = {
   systemYellow: '#FFCC00',
 };
 
-//
 export default Colours;

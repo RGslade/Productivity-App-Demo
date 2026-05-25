@@ -4,7 +4,6 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 
-//
 type RequiredUpdateGateProps = {
   currentVersion: string;
   minimumVersion: string | null;
@@ -12,17 +11,13 @@ type RequiredUpdateGateProps = {
 };
 
 /** Renders a blocking update screen when minimum supported app version is not met. */
-//
 export default function RequiredUpdateGate({ currentVersion, minimumVersion, storeUrl }: RequiredUpdateGateProps) {
-  //
   const handleOpenStore = async () => {
-    //
     if (!storeUrl) {
       Alert.alert('Update link missing', 'Store URL is not configured yet. Please contact support.');
       return;
     }
 
-    //
     try {
       await Linking.openURL(storeUrl);
     } catch (error) {
@@ -31,7 +26,6 @@ export default function RequiredUpdateGate({ currentVersion, minimumVersion, sto
     }
   };
 
-  //
   return (
     <ThemedView style={styles.container}>
       <ThemedView style={styles.content} lightColour="transparent" darkColour="transparent">
@@ -47,7 +41,6 @@ export default function RequiredUpdateGate({ currentVersion, minimumVersion, sto
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

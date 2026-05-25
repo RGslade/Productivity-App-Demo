@@ -13,27 +13,20 @@ import { HousingListing, HousingSearchParams } from '@/types/housing';
 import { Colours } from '@/constants/Colours';
 import PageNotReadyOverlay from '@/components/pageNotReadyOverlay';
 
-//
 interface HousingCardProps {
   listing: HousingListing;
 }
 
-//
 const HousingCard: React.FC<HousingCardProps> = ({ listing }) => {
-  //
   const textColor = useThemeColour({}, 'text');
 
-  //
   const handleOpen = async () => {
-    //
     if (!listing.detailsUrl) {
       Alert.alert('Unavailable', 'No listing URL is available for this property.');
       return;
     }
 
-    //
     const canOpen = await Linking.canOpenURL(listing.detailsUrl);
-    //
     if (!canOpen) {
       Alert.alert('Unable to Open', 'Could not open this property listing.');
       return;
@@ -41,7 +34,6 @@ const HousingCard: React.FC<HousingCardProps> = ({ listing }) => {
     await Linking.openURL(listing.detailsUrl);
   };
 
-  //
   return (
     <TouchableOpacity onPress={handleOpen} activeOpacity={0.7}>
       <Card style={styles.jobCard}>
@@ -84,15 +76,10 @@ const HousingCard: React.FC<HousingCardProps> = ({ listing }) => {
   );
 };
 
-//
 export default function HousingScreen() {
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const borderColor = useThemeColour({}, 'border');
-  //
   const { listings, isSearching, error, searchListings, resetSearch } = useHousing();
-  //
   const {
     location,
     isLoadingLocation,
@@ -102,28 +89,17 @@ export default function HousingScreen() {
     clearLocation,
   } = useLocationHandler();
 
-  //
   const [searchTerm, setSearchTerm] = useState('');
-  //
   const [postcodeInput, setPostcodeInput] = useState('');
-  //
   const [useDeviceLocation, setUseDeviceLocation] = useState(false);
-  //
   const [selectedDistance, setSelectedDistance] = useState<number>(5);
-  //
   const [selectedBedrooms, setSelectedBedrooms] = useState<number>(1);
-  //
   const [selectedPropertyType, setSelectedPropertyType] = useState<HousingSearchParams['propertyType']>('Any');
-  //
   const [listingStatus, setListingStatus] = useState<HousingSearchParams['listingStatus']>('to-rent');
-  //
   const [minPrice, setMinPrice] = useState('');
-  //
   const [maxPrice, setMaxPrice] = useState('');
-  //
   const [hasAttemptedSearch, setHasAttemptedSearch] = useState(false);
 
-  //
   const distanceOptions = [
     { label: '1 mile', value: 1 },
     { label: '3 miles', value: 3 },
@@ -133,38 +109,28 @@ export default function HousingScreen() {
     { label: '35 miles', value: 35 },
   ];
 
-  //
   const propertyTypeOptions: NonNullable<HousingSearchParams['propertyType']>[] = ['Any', 'House', 'Apartment', 'Studio', 'Shared'];
 
-  //
   const handleRequestLocation = async () => {
-    //
     const result = await requestLocationPermission();
-    //
     if (result) {
       setUseDeviceLocation(true);
       setPostcodeInput('');
     }
   };
 
-  //
   const handlePostcodeLookup = async () => {
-    //
     if (!postcodeInput.trim()) {
       Alert.alert('Error', 'Please enter a postcode');
       return;
     }
-    //
     const result = await getLocationFromPostcode(postcodeInput);
-    //
     if (result) {
       setUseDeviceLocation(false);
     }
   };
 
-  //
   const handleSearch = async () => {
-    //
     if (!location) {
       Alert.alert('Error', 'Please provide a location (GPS or postcode)');
       return;
@@ -173,16 +139,12 @@ export default function HousingScreen() {
     Keyboard.dismiss();
     setHasAttemptedSearch(true);
 
-    //
     const parsePrice = (value: string) => {
-      //
       const parsed = Number(value);
       return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
     };
 
-    //
     try {
-      //
       const params: HousingSearchParams = {
         query: searchTerm.trim() || undefined,
         location,
@@ -200,7 +162,6 @@ export default function HousingScreen() {
     }
   };
 
-  //
   const handleClearSearch = () => {
     resetSearch();
     setHasAttemptedSearch(false);
@@ -209,11 +170,8 @@ export default function HousingScreen() {
     setMaxPrice('');
   };
 
-  //
   const renderErrorMessage = () => {
-    //
     if (locationError) {
-      //
       return (
         <View style={[styles.errorContainer, { borderColor }]}>
           <Ionicons name="alert-circle-outline" size={20} color={Colours.light.danger} />
@@ -225,9 +183,7 @@ export default function HousingScreen() {
       );
     }
 
-    //
     if (error) {
-      //
       return (
         <View style={[styles.errorContainer, { borderColor }]}>
           <Ionicons name="alert-circle-outline" size={20} color={Colours.light.danger} />
@@ -242,11 +198,8 @@ export default function HousingScreen() {
     return null;
   };
 
-  //
   const renderLocationDisplay = () => {
-    //
     if (!location) return null;
-    //
     return (
       <Card style={styles.locationCard}>
         <View style={styles.locationInfo}>
@@ -263,7 +216,6 @@ export default function HousingScreen() {
     );
   };
 
-  //
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -450,7 +402,6 @@ export default function HousingScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

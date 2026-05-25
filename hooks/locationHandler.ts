@@ -7,29 +7,22 @@ import * as Location from 'expo-location';
 import { LocationData, JobSearchError } from '@/types/job';
 import { useState, useCallback } from 'react';
 
-//
 export function useLocationHandler() {
-  //
   const [location, setLocation] = useState<LocationData | null>(null);
-  //
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  //
   const [locationError, setLocationError] = useState<JobSearchError | null>(null);
 
   /**
    * Request location permission and get current position
    */
   const requestLocationPermission = useCallback(async (): Promise<LocationData | null> => {
-    //
     try {
       setIsLoadingLocation(true);
       setLocationError(null);
 
       // Request permission
-      //
       const { status } = await Location.requestForegroundPermissionsAsync();
 
-      //
       if (status !== 'granted') {
         setLocationError({
           message: 'Location permission denied',
@@ -40,14 +33,12 @@ export function useLocationHandler() {
       }
 
       // Get current location
-      //
       const currentLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
         timeInterval: 5000,
         mayShowUserSettingsDialog: true,
       });
 
-      //
       const locationData: LocationData = {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
@@ -56,17 +47,13 @@ export function useLocationHandler() {
       };
 
       // Try to get reverse geocode to get postcode
-      //
       try {
-        //
         const reverseGeocode = await Location.reverseGeocodeAsync({
           latitude: currentLocation.coords.latitude,
           longitude: currentLocation.coords.longitude,
         });
 
-        //
         if (reverseGeocode.length > 0) {
-          //
           const address = reverseGeocode[0];
           locationData.postcode = address.postalCode || '';
           locationData.address = `${address.city || ''} ${address.region || ''} ${address.country || ''}`.trim();
@@ -96,19 +83,15 @@ export function useLocationHandler() {
    * Uses a free postcode geocoding service
    */
   const getLocationFromPostcode = useCallback(async (postcode: string): Promise<LocationData | null> => {
-    //
     try {
       setIsLoadingLocation(true);
       setLocationError(null);
 
-      //
       const normalizedPostcode = postcode.toUpperCase().replace(/\s+/g, '');
 
       // Use UK postcode API - free service
-      //
       const response = await fetch(`https://api.postcodes.io/postcodes/${normalizedPostcode}`);
 
-      //
       if (!response.ok) {
         setLocationError({
           message: 'Invalid UK postcode',
@@ -118,10 +101,8 @@ export function useLocationHandler() {
         return null;
       }
 
-      //
       const data = await response.json();
 
-      //
       if (!data.result) {
         setLocationError({
           message: 'Postcode not found',
@@ -131,7 +112,6 @@ export function useLocationHandler() {
         return null;
       }
 
-      //
       const locationData: LocationData = {
         latitude: data.result.latitude,
         longitude: data.result.longitude,
@@ -173,29 +153,20 @@ export function useLocationHandler() {
 }
 
 // Legacy service for backward compatibility
-//
 class LocationService {
   async PostCode(): Promise<string | null> {
-    //
     const { status } = await Location.requestForegroundPermissionsAsync();
-    //
     if (status !== 'granted') {
       console.error('Permission to access location was denied');
       return null;
     }
-    //
     const location = await Location.getCurrentPositionAsync({});
-    //
     const { latitude, longitude } = location.coords;
-    //
     const address = await Location.reverseGeocodeAsync({ latitude, longitude });
-    //
     const postcode = address[0]?.postalCode || null;
     return postcode;
   }
 }
 
-//
 export const locationService = new LocationService();
-//
 export default locationService;

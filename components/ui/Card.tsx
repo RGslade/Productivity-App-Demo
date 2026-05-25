@@ -4,7 +4,6 @@ import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 interface CardProps {
   children?: React.ReactNode;
   title?: string;
@@ -17,7 +16,6 @@ interface CardProps {
 
 // ⬅️ OUTSIDE Card
 /** Renders the base card surface used across the app. */
-//
 const CardContent: React.FC<{children?: React.ReactNode;
   title?: string; 
   style?: StyleProp<ViewStyle>; 
@@ -28,7 +26,6 @@ const CardContent: React.FC<{children?: React.ReactNode;
   onPress?: () => void;
   touchableProps?: TouchableOpacityProps;
 }> = ({children, title, style, bodyStyle, titleStyle, cardBackgroundColor, borderColor, onPress, touchableProps,}) => {
-  //
   const content = (
     <ThemedView style={[styles.card, { backgroundColor: cardBackgroundColor, borderColor }, style]}>
       <View style={[styles.cardBody, bodyStyle]}>
@@ -42,10 +39,8 @@ const CardContent: React.FC<{children?: React.ReactNode;
     </ThemedView>
   );
 
-  //
   if (!onPress) return content;
 
-  //
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} {...touchableProps}>
       {content}
@@ -54,14 +49,10 @@ const CardContent: React.FC<{children?: React.ReactNode;
 };
 
 
-//
 export const Card: React.FC<CardProps> = ({children, title, style, bodyStyle, titleStyle, onPress, touchableProps,}) => {
-  //
   const cardBackgroundColor = useThemeColour({}, 'cardBackground');
-  //
   const borderColor = useThemeColour({}, 'cardBorder');
 
-  //
   return (
     <CardContent title={title} style={style} bodyStyle={bodyStyle} titleStyle={titleStyle} cardBackgroundColor={cardBackgroundColor} borderColor={borderColor} onPress={onPress} touchableProps={touchableProps}>
       {children}
@@ -69,18 +60,14 @@ export const Card: React.FC<CardProps> = ({children, title, style, bodyStyle, ti
   );
 };
 
-//
 interface CardHeaderProps {
   children: React.ReactNode;
   style?: ViewStyle;
 }
 
-//
 export const CardHeader: React.FC<CardHeaderProps> = ({ children, style }) => {
-  //
   const borderColour = useThemeColour({ light: '#DEE2E6', dark: '#3A3A3C' }, 'cardBorder');
 
-  //
   return (
     <View style={[styles.cardHeader, { borderBottomColor: borderColour }, style]}>
       {children}
@@ -88,15 +75,12 @@ export const CardHeader: React.FC<CardHeaderProps> = ({ children, style }) => {
   );
 };
 
-//
 interface CardBodyProps {
   children: React.ReactNode;
   style?: ViewStyle;
 }
 
-//
 export const CardBody: React.FC<CardBodyProps> = ({ children, style }) => {
-  //
   return (
     <View style={[styles.cardBody, style]}>
       {children}
@@ -104,18 +88,14 @@ export const CardBody: React.FC<CardBodyProps> = ({ children, style }) => {
   )
 };
 
-//
 interface CardFooterProps {
   children: React.ReactNode;
   style?: ViewStyle;
 }
 
-//
 export const CardFooter: React.FC<CardFooterProps> = ({ children, style }) => {
-  //
   const borderColor = useThemeColour({ light: '#DEE2E6', dark: '#3A3A3C' }, 'cardBorder');
 
-  //
   return (
     <View style={[styles.cardFooter, { borderTopColor: borderColor }, style]}>
       {children}
@@ -123,15 +103,12 @@ export const CardFooter: React.FC<CardFooterProps> = ({ children, style }) => {
   );
 };
 
-//
 interface CardTitleProps {
   children: React.ReactNode;
   style?: TextStyle;
 }
 
-//
 export const CardTitle: React.FC<CardTitleProps> = ({ children, style }) => {
-  //
   return (
     <ThemedText type="subtitle" style={[style]}>
       {children}
@@ -139,15 +116,12 @@ export const CardTitle: React.FC<CardTitleProps> = ({ children, style }) => {
   )
 };
 
-//
 interface CardTextProps {
   children: React.ReactNode;
   style?: TextStyle;
 }
 
-//
 export const CardText: React.FC<CardTextProps> = ({ children, style }) => {
-  //
   return (
     <ThemedText style={[style]}>
       {children}
@@ -155,7 +129,6 @@ export const CardText: React.FC<CardTextProps> = ({ children, style }) => {
   )
 };
 
-//
 const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
@@ -187,5 +160,4 @@ const styles = StyleSheet.create({
   },
 });
 
-//
 export default Card;

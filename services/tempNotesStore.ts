@@ -1,17 +1,13 @@
 import { TempNote } from '@/types/notes';
 
-//
 let tempNotes: TempNote[] = [];
 
-//
 const createId = () => `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-//
 const sortByUpdated = (a: TempNote, b: TempNote) => {
   return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
 };
 
-//
 export const tempNotesStore = {
   getAll(): TempNote[] {
     return [...tempNotes].sort(sortByUpdated);
@@ -20,9 +16,7 @@ export const tempNotesStore = {
     return tempNotes.find(note => note.id === id);
   },
   add(title: string, content: string): TempNote {
-    //
     const timestamp = new Date().toISOString();
-    //
     const note: TempNote = {
       id: createId(),
       title,
@@ -35,11 +29,8 @@ export const tempNotesStore = {
     return note;
   },
   update(id: string, updates: { title?: string; content?: string }): TempNote | null {
-    //
     const index = tempNotes.findIndex(note => note.id === id);
-    //
     if (index === -1) return null;
-    //
     const updated: TempNote = {
       ...tempNotes[index],
       title: updates.title ?? tempNotes[index].title,
@@ -58,5 +49,4 @@ export const tempNotesStore = {
   },
 };
 
-//
 export default tempNotesStore;

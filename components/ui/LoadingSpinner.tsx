@@ -3,7 +3,6 @@ import { View, Text, ActivityIndicator, StyleSheet, ViewStyle, TextStyle } from 
 
 import { Colours } from '../../constants/Colours';
 
-//
 interface LoadingSpinnerProps {
   size?: 'small' | 'large';
   color?: string;
@@ -14,7 +13,6 @@ interface LoadingSpinnerProps {
 }
 
 /** Renders a loading spinner with optional status text. */
-//
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'large',
   color = Colours.light.primary,
@@ -23,12 +21,10 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   textStyle,
   fullScreen = false,
 }) => {
-  //
   const containerStyle = fullScreen
     ? [styles.fullScreenContainer, style]
     : [styles.loadingContainer, style];
 
-  //
   return (
     <View style={containerStyle}>
       <ActivityIndicator size={size} color={color} />
@@ -41,7 +37,6 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   );
 };
 
-//
 const styles = StyleSheet.create({
   fullScreenContainer: {
     position: 'absolute',
@@ -69,6 +64,5 @@ const styles = StyleSheet.create({
   },
 });
 
-//
 export default LoadingSpinner;
 

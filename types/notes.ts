@@ -1,4 +1,3 @@
-//
 export interface Note {
   id: number;
   user_id: string;
@@ -8,7 +7,6 @@ export interface Note {
   updated_at: string;
 }
 
-//
 export interface TempNote {
   id: string;
   title: string;
@@ -18,19 +16,16 @@ export interface TempNote {
   isTemporary: true;
 }
 
-//
 export interface CreateNoteRequest {
   title: string;
   content: string;
 }
 
-//
 export interface UpdateNoteRequest {
   title?: string;
   content: string;
 }
 
-//
 export interface NotesListItem {
   id: string | number;
   title: string;

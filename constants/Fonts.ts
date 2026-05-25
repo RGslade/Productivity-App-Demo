@@ -1,4 +1,3 @@
-//
 export const AVAILABLE_FONTS = [
   { label: 'Arial', value: 'Arial' },
   { label: 'System Default', value: 'System' },

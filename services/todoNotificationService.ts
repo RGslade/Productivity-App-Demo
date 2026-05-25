@@ -6,22 +6,17 @@ import databaseService from './databaseService';
 import { ToDoItem } from '@/types/todo';
 import { UserSettingsToDo } from '@/types/settings';
 
-//
 class TodoNotificationService {
   /**
    * Main handler for background todo notifications
    * Call this from the background task
    */
   async handleBackgroundNotifications(userId: number, username: string): Promise<void> {
-    //
     try {
       // Check if user has any incomplete tasks
-      //
       const todos = await todoService.getToDoItems();
-      //
       const hasIncomplete = todos.some(todo => !todo.is_complete);
 
-      //
       if (!hasIncomplete) {
         // No incomplete tasks - send motivational "no tasks" notification
         await this.checkAndSendNoTasksNotification(userId, username);
@@ -41,37 +36,28 @@ class TodoNotificationService {
    * Check and send "no tasks" notification every 10 days
    */
   private async checkAndSendNoTasksNotification(userId: number, username: string): Promise<void> {
-    //
     try {
       // Get the last time we sent this notification
-      //
       const todoSettings = await settingsService.getToDoSettings();
       // const todos = await todoService.getToDoItems();
       // if (todos.length === 0) return; // No todos at all, don't notify --wth??? the whole point of this is that IF there are no todos, then you DO notify
 
-      //
       const lastNoTasksNotification = todoSettings.last_notification_no_tasks_sent;
-      //
       const now = new Date();
 
       // Check if 10 days have passed since last notification
-      //
       if (lastNoTasksNotification) {
-        //
         const lastNotificationDate = new Date(lastNoTasksNotification);
-        //
         const daysSinceLastNotification = Math.floor(
           (now.getTime() - lastNotificationDate.getTime()) / (1000 * 60 * 60 * 24)
         );
 
-        //
         if (daysSinceLastNotification < 10) {
           return;
         }
       }
 
       // Send the notification
-      //
       const message = todoService.getNoTasksMotivationalMessage(username);
       await sendLocalNotification(message.title, message.body, {
         type: 'no_tasks',
@@ -89,24 +75,18 @@ class TodoNotificationService {
    * Check and send deadline reminders (1 day before & day of)
    */
   private async checkAndSendDeadlineReminders(userId: number, username: string): Promise<void> {
-    //
     try {
       // Get tasks due tomorrow
-      //
       const tasksDueTomorrow = await todoService.getTasksDueTomorrow();
-      //
       const dueTomorrowEligibleTasks: typeof tasksDueTomorrow = [];
-      //
       const now = new Date();
 
       for (const task of tasksDueTomorrow) {
-        //
         const lastSent = task.last_deadline_reminder_sent
           ? new Date(task.last_deadline_reminder_sent)
           : null;
 
         // Only send once per task per day
-        //
         if (lastSent && lastSent.toDateString() === now.toDateString()) {
           continue;
         }
@@ -114,7 +94,6 @@ class TodoNotificationService {
         dueTomorrowEligibleTasks.push(task);
       }
 
-      //
       if (dueTomorrowEligibleTasks.length >= 3) {
         await sendLocalNotification(
           'Tasks Due Tomorrow',
@@ -132,7 +111,6 @@ class TodoNotificationService {
         }
       } else {
         for (const task of dueTomorrowEligibleTasks) {
-          //
           const message = todoService.getDeadlineReminderMessage(task, 1, username);
           await sendLocalNotification(`Due Tomorrow: ${task.title}`, message.body, {
             type: 'deadline_reminder',
@@ -147,19 +125,15 @@ class TodoNotificationService {
       }
 
       // Get tasks due today
-      //
       const tasksDueToday = await todoService.getTasksDueToday();
-      //
       const dueTodayEligibleTasks: typeof tasksDueToday = [];
 
       for (const task of tasksDueToday) {
-        //
         const lastSent = task.last_deadline_reminder_sent
           ? new Date(task.last_deadline_reminder_sent)
           : null;
 
         // Only send once per task per day
-        //
         if (lastSent && lastSent.toDateString() === now.toDateString()) {
           continue;
         }
@@ -167,7 +141,6 @@ class TodoNotificationService {
         dueTodayEligibleTasks.push(task);
       }
 
-      //
       if (dueTodayEligibleTasks.length >= 3) {
         await sendLocalNotification(
           'Tasks Due Today',
@@ -185,7 +158,6 @@ class TodoNotificationService {
         }
       } else {
         for (const task of dueTodayEligibleTasks) {
-          //
           const message = todoService.getDeadlineReminderMessage(task, 0, username);
           await sendLocalNotification(`Due Today: ${task.title}`, message.body, {
             type: 'deadline_reminder',
@@ -207,26 +179,20 @@ class TodoNotificationService {
    * Check and send "one week before deadline" reminders
    */
   private async checkAndSendOneWeekReminders(userId: number, username: string): Promise<void> {
-    //
     try {
-      //
       const tasksDueInOneWeek = await todoService.getTasksDueInOneWeek();
 
       for (const task of tasksDueInOneWeek) {
-        //
         const lastSent = task.last_one_week_reminder_sent
           ? new Date(task.last_one_week_reminder_sent)
           : null;
-        //
         const now = new Date();
 
         // Only send once per task per day
-        //
         if (lastSent && lastSent.toDateString() === now.toDateString()) {
           continue;
         }
 
-        //
         const message = todoService.getDeadlineReminderMessage(task, 7, username);
         await sendLocalNotification(`Due In One Week: ${task.title}`, message.body, {
           type: 'one_week_reminder',
@@ -246,50 +212,37 @@ class TodoNotificationService {
    * Check and send overdue task reminders every 3 days
    */
   private async checkAndSendOverdueReminders(userId: number, username: string): Promise<void> {
-    //
     try {
-      //
       const overdueTasksWithReminders = await todoService.getOverdueTasksWithReminders();
 
-      //
       if (overdueTasksWithReminders.length === 0) return;
 
-      //
       const eligibleTasks: typeof overdueTasksWithReminders = [];
-      //
       const now = new Date();
 
       for (const task of overdueTasksWithReminders) {
-        //
         if (!task["due_date_&_time"]) continue;
 
-        //
         const dueDate = new Date(task["due_date_&_time"]);
-        //
         const daysOverdue = Math.floor(
           (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
         );
 
         // Only notify exactly 1 day overdue and 3 days overdue.
-        //
         if (daysOverdue !== 1 && daysOverdue !== 3) {
           continue;
         }
 
-        //
         const lastSent = task.last_overdue_reminder_sent
           ? new Date(task.last_overdue_reminder_sent)
           : null;
 
         // Ensure one send per overdue milestone day.
-        //
         if (lastSent) {
-          //
           const lastSentOverdueDays = Math.floor(
             (lastSent.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
           );
 
-          //
           if (lastSentOverdueDays === daysOverdue) {
             continue;
           }
@@ -298,10 +251,8 @@ class TodoNotificationService {
         eligibleTasks.push(task);
       }
 
-      //
       if (eligibleTasks.length === 0) return;
 
-      //
       if (eligibleTasks.length > 1) {
         await sendLocalNotification(
           'Overdue Tasks Reminder',
@@ -317,9 +268,7 @@ class TodoNotificationService {
           await this.updateTaskNotificationTimestamp(task.id, 'last_overdue_reminder_sent');
         }
       } else {
-        //
         const task = eligibleTasks[0];
-        //
         const message = todoService.getOverdueReminderMessage(task, username);
         await sendLocalNotification(`Overdue: ${task.title}`, message.body, {
           type: 'overdue_reminder',
@@ -346,21 +295,16 @@ class TodoNotificationService {
       | 'last_one_week_reminder_sent'
       | 'last_overdue_reminder_sent'
   ): Promise<void> {
-    //
     try {
-      //
       const now = new Date().toISOString();
 
       // Update all todos for this user
-      //
       if (columnName === 'last_notification_no_tasks_sent') {
         await databaseService.updateTable<UserSettingsToDo>("UserSettings_ToDo", { [columnName]: now });
         return;
       }
-      //
       const { error } = await databaseService.updateTable<ToDoItem>("ToDoItems", { [columnName]: now });
 
-      //
       if (error) {
         console.error(
           `[TodoNotifications] Error updating ${columnName}:`,
@@ -383,19 +327,14 @@ class TodoNotificationService {
       | 'last_one_week_reminder_sent'
       | 'last_overdue_reminder_sent'
   ): Promise<void> {
-    //
     try {
-      //
       const now = new Date().toISOString();
-      //
       if (columnName === 'last_notification_no_tasks_sent') {
         await databaseService.updateTable<UserSettingsToDo>("UserSettings_ToDo", { [columnName]: now });
         return;
       }
-      //
       const { error } = await databaseService.updateTable<ToDoItem>("ToDoItems", { [columnName]: now }, undefined, 'id', taskId);
 
-      //
       if (error) {
         console.error(`[TodoNotifications] Error updating task ${columnName}:`, error);
       }
@@ -405,7 +344,5 @@ class TodoNotificationService {
   }
 }
 
-//
 export const todoNotificationService = new TodoNotificationService();
-//
 export default todoNotificationService;

@@ -2,33 +2,25 @@ import databaseService from '@/services/databaseService';
 import { Document } from '@/types/document';
 import * as FileSystem from 'expo-file-system';
 
-//
 class DocumentService {
   /** Fetches every document from the shared database table. */
   async getDocuments(): Promise<Document[]> {
-    //
     const { data, error } = await databaseService.getAllGlobal<Document>('Documents', 'created_at');
-    //
     if (error) {
       console.error(error);
       throw new Error(error.message);
     }
 
-    //
     return (data || []).map(document => ({ ...document, is_builtin: false }));
   }
 
   /** Fetches one document by id from the shared database table. */
   async getDocument(id: number): Promise<Document | undefined> {
-    //
     if (id === 0) return;
 
-    //
     const { data, error } = await databaseService.getSingleGlobal<Document>('Documents', 'id', id);
-    //
     if (error) {
       console.error('documentService.getDocument', error);
-      //
       if (error.code === 'PGRST116' && error.details.includes(' 0 rows')) {
         throw new Error(error.message);
       }
@@ -39,24 +31,17 @@ class DocumentService {
 
   /** Creates a plain-text file for a document in a user-selected directory. */
   async createDocumentFile(document: Document): Promise<string | null> {
-    //
     if (!document) throw new Error('Document not found');
-    //
     const storageAccessFramework = (FileSystem as any).StorageAccessFramework;
-    //
     if (!storageAccessFramework) {
       console.warn('StorageAccessFramework unavailable on this platform');
       return null;
     }
 
-    //
     const permissions = await storageAccessFramework.requestDirectoryPermissionsAsync();
-    //
     if (!permissions.granted) return null;
 
-    //
     try {
-      //
       const fileUri = await storageAccessFramework.createFileAsync(
         permissions.directoryUri,
         document.file_name,
@@ -72,22 +57,16 @@ class DocumentService {
 
   /** Downloads a document by writing it into user-selected storage. */
   async downloadDocument(id: number): Promise<void> {
-    //
     const document = await this.getDocument(id);
-    //
     if (!document) throw new Error('Document not found');
 
-    //
     const storageAccessFramework = (FileSystem as any).StorageAccessFramework;
-    //
     if (!storageAccessFramework) {
       console.warn('StorageAccessFramework unavailable on this platform');
       return;
     }
 
-    //
     const permissions = await storageAccessFramework.requestDirectoryPermissionsAsync();
-    //
     if (!permissions.granted) {
       alert('Permission to access storage was denied');
       return;
@@ -115,7 +94,6 @@ class DocumentService {
     description?: string;
     content?: string;
   }): Promise<Document> {
-    //
     const { data, error } = await databaseService.insertToTableGlobal('Documents', {
       title: file.title,
       file_name: file.name,
@@ -123,7 +101,6 @@ class DocumentService {
       content: file.content,
     });
 
-    //
     if (error) {
       throw new Error(error.message);
     }
@@ -133,10 +110,8 @@ class DocumentService {
 
   /** Returns a file-type icon based on extension. */
   getFileIcon(fileName: string): string {
-    //
     const extension = fileName.split('.').pop()?.toLowerCase();
 
-    //
     const iconMap: Record<string, string> = {
       pdf: '\u{1F4C4}',
       doc: '\u{1F4DD}',
@@ -168,8 +143,6 @@ class DocumentService {
   }
 }
 
-//
 export const documentService = new DocumentService();
-//
 export default documentService;
 

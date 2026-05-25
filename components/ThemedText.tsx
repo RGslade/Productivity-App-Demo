@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, Text, type TextProps } from 'react-native';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 export type ThemedTextProps = TextProps & {
   lightColour?: string;
   darkColour?: string;
@@ -10,30 +9,24 @@ export type ThemedTextProps = TextProps & {
 };
 
 /** Renders theme-aware text content. */
-//
 export function ThemedText({
   style,
   lightColour,
   darkColour,
-  //
   type = 'default',
   children,
   ...rest
 }: ThemedTextProps) {
-  //
   const color = useThemeColour({ light: lightColour, dark: darkColour }, 'text');
 
-  //
   return (
     <Text style={[{ color }, type === 'default' ? styles.default : undefined, type === 'title' ? styles.title : undefined, type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        //
         type === 'subtitle' ? styles.subtitle : undefined, type === 'link' ? styles.link : undefined, style,]} {...rest}>
       {children}
     </Text>
   );
 }
 
-//
 const styles = StyleSheet.create({
   default: {
     fontSize: 16,

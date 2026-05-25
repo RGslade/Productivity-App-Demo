@@ -1,4 +1,3 @@
-//
 export const EDUCATION_TYPES = [
   'GCSE',
   'A Level',
@@ -10,10 +9,8 @@ export const EDUCATION_TYPES = [
   'Other',
 ] as const;
 
-//
 export type EducationType = typeof EDUCATION_TYPES[number];
 
-//
 export const EDUCATION_GRADES: Record<Exclude<EducationType, 'Other'>, string[]> = {
   GCSE: ['9', '8', '7', '6', '5', '4', '3', '2', '1', 'U'],
   'A Level': ['A*', 'A', 'B', 'C', 'D', 'E', 'U'],
@@ -24,7 +21,6 @@ export const EDUCATION_GRADES: Record<Exclude<EducationType, 'Other'>, string[]>
   'Functional Skills': ['Pass', 'Fail'],
 };
 
-//
 export interface EducationGrade {
   id: number;
   user_id: number;
@@ -38,7 +34,6 @@ export interface EducationGrade {
   updated_at?: string | null;
 }
 
-//
 export interface CreateEducationGradeRequest {
   subject: string;
   qualification_type: EducationType;
@@ -48,7 +43,6 @@ export interface CreateEducationGradeRequest {
   notes?: string | null;
 }
 
-//
 export interface UpdateEducationGradeRequest {
   subject?: string;
   qualification_type?: EducationType;

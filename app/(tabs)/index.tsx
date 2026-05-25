@@ -25,20 +25,20 @@ import { NewsArticle, NewsCategory } from '@/types/news';
 import { ToDoItem } from '@/types/todo';
 import { UserInfo } from '@/types/user';
 
-//Set the interface for the dashboard inforamtion which will be used throughout.
-interface DashboardInfo {
+//Set the interface for the dashboard information which will be used throughout.
+interface DashboardSummary {
   userInfo: UserInfo;
   todoStats: {
     total: number;
     completed: number;
     overdue: number;
-    dueSoonDate: number;
+    dueSoonCount: number;
   };
   checklistStats: {
     total: number;
     completed: number;
     overdue: number;
-    dueSoonDate: number;
+    dueSoonCount: number;
   };
   transactionStats: {
     monthlyIncome: number;
@@ -47,7 +47,7 @@ interface DashboardInfo {
   };
 }
 
-//Constants for the dashboard card headinggs and News card categories.
+//Constants for the dashboard card headings and News card categories.
 const CARD_LABELS: Record<DashboardCardKey, string> = {
   tasks: 'Tasks Overview',
   checklists: 'Checklists',
@@ -77,7 +77,7 @@ const getNoteTitle = (content: string) => {
 //Render the dashboard screen.
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const [info, setInfo] = useState<DashboardInfo | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
   const [dueToday, setDueToday] = useState<ToDoItem[]>([]);
   const [dueSoon, setDueSoon] = useState<ToDoItem[]>([]);
   const [recentChats, setRecentChats] = useState<Conversation[]>([]);
@@ -119,7 +119,7 @@ export default function DashboardScreen() {
   const backgroundColour = useThemeColour({}, 'background');
   const cardBackground = useThemeColour({}, 'cardBackground');
 
-  //calles the customisation layout method to get what the current order and visible items should be.
+  //calls the customisation layout method to get what the current order and visible items should be.
   useEffect(() => {
     dashboardCustomizationService.getLayout().then((layout) => {
       setLayoutState(layout);
@@ -180,15 +180,15 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (!user || todosLoading || transactionsLoading || !todos || !transactions || !userInfo || !settings) return;
     const now = new Date();
-    const dueSoonDate = new Date();
-    dueSoonDate.setDate(now.getDate() + settings.todo.todo_soon_determiner);
+    const dueSoonCutoffDate = new Date();
+    dueSoonCutoffDate.setDate(now.getDate() + settings.todo.todo_soon_determiner);
 
     const isChecklistComplete = (todo: ToDoItem) => Boolean(todo.checklist_items?.length) && (todo.checklist_items || []).every((item) => item.is_complete);
     const buildStats = (items: ToDoItem[]) => ({//Gets the statistics for a list of checklists
       total: items.length,
       completed: items.filter(todo => todo.item_kind === 'checklist' ? isChecklistComplete(todo) : todo.is_complete).length,
       overdue: items.filter(todo => !(todo.item_kind === 'checklist' ? isChecklistComplete(todo) : todo.is_complete) && todo['due_date_&_time'] && new Date(todo['due_date_&_time']) < now).length,
-      dueSoonDate: items.filter(todo => !(todo.item_kind === 'checklist' ? isChecklistComplete(todo) : todo.is_complete) && todo['due_date_&_time'] && new Date(todo['due_date_&_time']) >= now && new Date(todo['due_date_&_time']) <= dueSoonDate).length,
+      dueSoonCount: items.filter(todo => !(todo.item_kind === 'checklist' ? isChecklistComplete(todo) : todo.is_complete) && todo['due_date_&_time'] && new Date(todo['due_date_&_time']) >= now && new Date(todo['due_date_&_time']) <= dueSoonCutoffDate).length,
     });
 
     const todoStats = buildStats(taskTodos);
@@ -197,10 +197,10 @@ export default function DashboardScreen() {
     const monthlyExpenses = Math.abs(transactions.filter(t => t.type === 'Expense').reduce((sum, t) => sum + t.amount, 0));
     const transactionStats = { monthlyIncome, monthlyExpenses, balance: monthlyIncome - monthlyExpenses };
 
-    setInfo({ userInfo: userInfo, todoStats, checklistStats, transactionStats });
+    setDashboardSummary({ userInfo: userInfo, todoStats, checklistStats, transactionStats });
   }, [transactions, user, userInfo, settings, currentMonth, taskTodos, checklistTodos, todos, todosLoading, transactionsLoading]);
 
-  //Handle screem refresh so information is up to date.
+  //Handle screen refresh so information is up to date.
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -280,8 +280,8 @@ export default function DashboardScreen() {
   };
 
   //Gets the todo card border colours which coincides with the date when it is due.
-  const getDashboardCardBorder = (stats: { completed: number; dueSoonDate: number; overdue: number; total: number }) => {
-    const statusColour = stats.overdue > 0 ? '#EF4444' : stats.dueSoonDate > 0 ? '#F59E0B' : stats.total > 0 && stats.completed === stats.total ? '#22C55E' : '#3B82F6';
+  const getDashboardCardBorder = (stats: { completed: number; dueSoonCount: number; overdue: number; total: number }) => {
+    const statusColour = stats.overdue > 0 ? '#EF4444' : stats.dueSoonCount > 0 ? '#F59E0B' : stats.total > 0 && stats.completed === stats.total ? '#22C55E' : '#3B82F6';
     return { borderWidth: 0, borderLeftWidth: 4, borderColor: statusColour };
   };
 
@@ -298,19 +298,19 @@ export default function DashboardScreen() {
   const renderCard = (key: DashboardCardKey) => {
     switch (key) {
       case 'tasks':
-        return info ? (
+        return dashboardSummary ? (
           <TouchableOpacity onPress={() => router.replace({ pathname: '/todo', params: { type: 'tasks' } })}>
-            <Card style={[styles.card, getDashboardCardBorder(info.todoStats)]}><ThemedText type="subtitle" style={styles.cardTitle}>Tasks Overview</ThemedText><ThemedView style={styles.infoContainer}><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={styles.cardNumber}>{info.todoStats.total}</ThemedText><ThemedText style={styles.cardLabel}>Total</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#22C55E' }]}>{info.todoStats.completed}</ThemedText><ThemedText style={styles.cardLabel}>Completed</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#EF4444' }]}>{info.todoStats.overdue}</ThemedText><ThemedText style={styles.cardLabel}>Overdue</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#F59E0B' }]}>{info.todoStats.dueSoonDate}</ThemedText><ThemedText style={styles.cardLabel}>Due Soon</ThemedText></ThemedView></ThemedView><ThemedText style={styles.tapHint}>Tap to view all tasks {'->'}</ThemedText></Card>
+            <Card style={[styles.card, getDashboardCardBorder(dashboardSummary.todoStats)]}><ThemedText type="subtitle" style={styles.cardTitle}>Tasks Overview</ThemedText><ThemedView style={styles.infoContainer}><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={styles.cardNumber}>{dashboardSummary.todoStats.total}</ThemedText><ThemedText style={styles.cardLabel}>Total</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#22C55E' }]}>{dashboardSummary.todoStats.completed}</ThemedText><ThemedText style={styles.cardLabel}>Completed</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#EF4444' }]}>{dashboardSummary.todoStats.overdue}</ThemedText><ThemedText style={styles.cardLabel}>Overdue</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#F59E0B' }]}>{dashboardSummary.todoStats.dueSoonCount}</ThemedText><ThemedText style={styles.cardLabel}>Due Soon</ThemedText></ThemedView></ThemedView><ThemedText style={styles.tapHint}>Tap to view all tasks {'->'}</ThemedText></Card>
           </TouchableOpacity>
         ) : null;
       case 'checklists':
-        return info ? (
+        return dashboardSummary ? (
           <TouchableOpacity onPress={() => router.replace({ pathname: '/todo', params: { type: 'checklists' } })}>
-            <Card style={[styles.card, getDashboardCardBorder(info.checklistStats)]}><ThemedText type="subtitle" style={styles.cardTitle}>Checklists</ThemedText><ThemedView style={styles.infoContainer}><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={styles.cardNumber}>{info.checklistStats.total}</ThemedText><ThemedText style={styles.cardLabel}>Total</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#22C55E' }]}>{info.checklistStats.completed}</ThemedText><ThemedText style={styles.cardLabel}>Completed</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#EF4444' }]}>{info.checklistStats.overdue}</ThemedText><ThemedText style={styles.cardLabel}>Overdue</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#F59E0B' }]}>{info.checklistStats.dueSoonDate}</ThemedText><ThemedText style={styles.cardLabel}>Due Soon</ThemedText></ThemedView></ThemedView>{checklistTodos.length === 0 ? <ThemedText style={styles.listItemText}>No checklists yet.</ThemedText> : checklistTodos.slice(0, 3).map((todo) => (<ThemedText key={todo.id} style={[styles.listItemText, getItemTextStyle(todo)]}>{todo.title}</ThemedText>))}<ThemedText style={styles.tapHint}>Tap to view all checklists {'->'}</ThemedText></Card>
+            <Card style={[styles.card, getDashboardCardBorder(dashboardSummary.checklistStats)]}><ThemedText type="subtitle" style={styles.cardTitle}>Checklists</ThemedText><ThemedView style={styles.infoContainer}><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={styles.cardNumber}>{dashboardSummary.checklistStats.total}</ThemedText><ThemedText style={styles.cardLabel}>Total</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#22C55E' }]}>{dashboardSummary.checklistStats.completed}</ThemedText><ThemedText style={styles.cardLabel}>Completed</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#EF4444' }]}>{dashboardSummary.checklistStats.overdue}</ThemedText><ThemedText style={styles.cardLabel}>Overdue</ThemedText></ThemedView><ThemedView style={styles.cardItem}><ThemedText type="defaultSemiBold" style={[styles.cardNumber, { color: '#F59E0B' }]}>{dashboardSummary.checklistStats.dueSoonCount}</ThemedText><ThemedText style={styles.cardLabel}>Due Soon</ThemedText></ThemedView></ThemedView>{checklistTodos.length === 0 ? <ThemedText style={styles.listItemText}>No checklists yet.</ThemedText> : checklistTodos.slice(0, 3).map((todo) => (<ThemedText key={todo.id} style={[styles.listItemText, getItemTextStyle(todo)]}>{todo.title}</ThemedText>))}<ThemedText style={styles.tapHint}>Tap to view all checklists {'->'}</ThemedText></Card>
           </TouchableOpacity>
         ) : null;
       case 'finances':
-        return info ? <TouchableOpacity onPress={() => router.replace('/budget')}><Card style={styles.card}><ThemedText type="subtitle" style={styles.cardTitle}>This Months Finances</ThemedText><ThemedView style={styles.financeContainer}><ThemedView style={styles.financeRow}><ThemedText style={styles.financeLabel}>Income:</ThemedText><ThemedText style={[styles.financeAmount, { color: '#22C55E' }]}>{formatAmount(info.transactionStats.monthlyIncome)}</ThemedText></ThemedView><ThemedView style={styles.financeRow}><ThemedText style={styles.financeLabel}>Expenses:</ThemedText><ThemedText style={[styles.financeAmount, { color: '#EF4444' }]}>{formatAmount(info.transactionStats.monthlyExpenses)}</ThemedText></ThemedView><ThemedView style={[styles.financeRow, styles.balanceRow, { borderTopColor: borderColour }]}><ThemedText type="defaultSemiBold" style={styles.financeLabel}>Balance:</ThemedText><ThemedText type="defaultSemiBold" style={[styles.financeAmount, { color: info.transactionStats.balance >= 0 ? '#22C55E' : '#EF4444' }]}>{formatAmount(info.transactionStats.balance)}</ThemedText></ThemedView></ThemedView></Card></TouchableOpacity> : null;
+        return dashboardSummary ? <TouchableOpacity onPress={() => router.replace('/budget')}><Card style={styles.card}><ThemedText type="subtitle" style={styles.cardTitle}>This Months Finances</ThemedText><ThemedView style={styles.financeContainer}><ThemedView style={styles.financeRow}><ThemedText style={styles.financeLabel}>Income:</ThemedText><ThemedText style={[styles.financeAmount, { color: '#22C55E' }]}>{formatAmount(dashboardSummary.transactionStats.monthlyIncome)}</ThemedText></ThemedView><ThemedView style={styles.financeRow}><ThemedText style={styles.financeLabel}>Expenses:</ThemedText><ThemedText style={[styles.financeAmount, { color: '#EF4444' }]}>{formatAmount(dashboardSummary.transactionStats.monthlyExpenses)}</ThemedText></ThemedView><ThemedView style={[styles.financeRow, styles.balanceRow, { borderTopColor: borderColour }]}><ThemedText type="defaultSemiBold" style={styles.financeLabel}>Balance:</ThemedText><ThemedText type="defaultSemiBold" style={[styles.financeAmount, { color: dashboardSummary.transactionStats.balance >= 0 ? '#22C55E' : '#EF4444' }]}>{formatAmount(dashboardSummary.transactionStats.balance)}</ThemedText></ThemedView></ThemedView></Card></TouchableOpacity> : null;
       case 'news':
         if (!isMyNewsRegionSupported) return null;
         return <TouchableOpacity onPress={() => router.replace('/myNews')}><Card style={styles.card}><ThemedText type="subtitle" style={styles.cardTitle}>My News - Top 5 Headlines</ThemedText><View style={styles.newsCategoryRow}>{NEWS_CATEGORIES.map((category) => (<TouchableOpacity key={category.key} style={[styles.newsCategoryChip, { borderColor: newsCategory === category.key ? cardBackground : borderColour, backgroundColor: newsCategory === category.key ? cardBackground : 'transparent' }]} onPress={() => setNewsCategory(category.key)}><ThemedText style={styles.newsCategoryText}>{category.label}</ThemedText></TouchableOpacity>))}</View>{dashboardHeadlines.map((article, index) => (<ThemedText key={article.id} numberOfLines={1} ellipsizeMode="tail" style={styles.listItemText}>{`${index + 1}. ${article.title}`}</ThemedText>))}</Card></TouchableOpacity>;
@@ -321,14 +321,14 @@ export default function DashboardScreen() {
       case 'lifenest':
         return <Card style={styles.card}><ThemedText type="subtitle" style={styles.cardTitle}>LifeNest - Last 3 Chats</ThemedText>{recentChats.length === 0 ? <TouchableOpacity onPress={() => router.replace('/lifenest')}><ThemedText style={styles.lifeNestLine}>No chat history yet ...</ThemedText></TouchableOpacity> : recentChats.map((chat, index) => (<TouchableOpacity key={chat.id} style={styles.lifeNestRow} onPress={() => router.replace({ pathname: '/lifenest', params: { conversationId: chat.id } })}><ThemedText style={styles.lifeNestLine}>{`${index + 1}. ${chat.title || 'New conversation'}`}</ThemedText></TouchableOpacity>))}</Card>;
       case 'movingOut':
-        return <TouchableOpacity onPress={() => router.replace({ pathname: '/todo', params: { premiumCategory: 'Moving Out' } })}><Card style={[styles.card, getDashboardCardBorder({ total: movingOutTodos.length, completed: movingOutTodos.filter((todo) => todo.is_complete).length, overdue: movingOutTodos.filter((todo) => !todo.is_complete && todo['due_date_&_time'] && new Date(todo['due_date_&_time']) < new Date()).length, dueSoonDate: movingOutTodos.filter((todo) => !todo.is_complete && todo['due_date_&_time'] && settings?.todo.todo_soon_determiner && new Date(todo['due_date_&_time']) >= new Date() && new Date(todo['due_date_&_time']) <= new Date(Date.now() + settings.todo.todo_soon_determiner * 24 * 60 * 60 * 1000)).length })]}><ThemedText type="subtitle" style={styles.cardTitle}>Moving Out Checklist</ThemedText><ThemedText style={styles.listItemMeta}>Completion: {movingOutCompletion}%</ThemedText>{movingOutTodos.length === 0 ? <ThemedText style={styles.listItemText}>No moving out tasks yet.</ThemedText> : movingOutTodos.map((todo) => (<TouchableOpacity key={todo.id} onPress={() => router.push(`/todo/edit/${todo.id}`)}><ThemedText style={[styles.listItemText, getItemTextStyle(todo)]}>{todo.title}</ThemedText></TouchableOpacity>))}</Card></TouchableOpacity>;
+        return <TouchableOpacity onPress={() => router.replace({ pathname: '/todo', params: { premiumCategory: 'Moving Out' } })}><Card style={[styles.card, getDashboardCardBorder({ total: movingOutTodos.length, completed: movingOutTodos.filter((todo) => todo.is_complete).length, overdue: movingOutTodos.filter((todo) => !todo.is_complete && todo['due_date_&_time'] && new Date(todo['due_date_&_time']) < new Date()).length, dueSoonCount: movingOutTodos.filter((todo) => !todo.is_complete && todo['due_date_&_time'] && settings?.todo.todo_soon_determiner && new Date(todo['due_date_&_time']) >= new Date() && new Date(todo['due_date_&_time']) <= new Date(Date.now() + settings.todo.todo_soon_determiner * 24 * 60 * 60 * 1000)).length })]}><ThemedText type="subtitle" style={styles.cardTitle}>Moving Out Checklist</ThemedText><ThemedText style={styles.listItemMeta}>Completion: {movingOutCompletion}%</ThemedText>{movingOutTodos.length === 0 ? <ThemedText style={styles.listItemText}>No moving out tasks yet.</ThemedText> : movingOutTodos.map((todo) => (<TouchableOpacity key={todo.id} onPress={() => router.push(`/todo/edit/${todo.id}`)}><ThemedText style={[styles.listItemText, getItemTextStyle(todo)]}>{todo.title}</ThemedText></TouchableOpacity>))}</Card></TouchableOpacity>;
       default:
         return null;
     }
   };
 
   //Show a loading spinner instead of the dashboard if in the loading state.
-  if (loading && !info) {
+  if (loading && !dashboardSummary) {
     return <ThemedView style={styles.loadingContainer}><LoadingSpinner /></ThemedView>;
   }
 

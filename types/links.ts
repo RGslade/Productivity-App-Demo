@@ -1,4 +1,3 @@
-//
 export interface HelpfulLink {
   id: string;
   title: string;
@@ -10,7 +9,6 @@ export interface HelpfulLink {
   priority: number;
 }
 
-//
 export const HELPFUL_LINKS_UK: HelpfulLink[] = [
   // Government & Official Services
   {
@@ -299,7 +297,6 @@ export const HELPFUL_LINKS_UK: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_IN: HelpfulLink[] = [
   {
     id: 'in-emergency-services-112',
@@ -453,7 +450,6 @@ export const HELPFUL_LINKS_IN: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_CN: HelpfulLink[] = [
   {
     id: 'cn-emergency-services-110',
@@ -607,7 +603,6 @@ export const HELPFUL_LINKS_CN: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_US: HelpfulLink[] = [
   {
     id: 'us-emergency-services-911',
@@ -761,7 +756,6 @@ export const HELPFUL_LINKS_US: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_ID: HelpfulLink[] = [
   {
     id: 'id-emergency-services-112',
@@ -915,7 +909,6 @@ export const HELPFUL_LINKS_ID: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_PK: HelpfulLink[] = [
   {
     id: 'pk-emergency-services-15',
@@ -1069,7 +1062,6 @@ export const HELPFUL_LINKS_PK: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_NG: HelpfulLink[] = [
   {
     id: 'ng-emergency-services-112',
@@ -1223,7 +1215,6 @@ export const HELPFUL_LINKS_NG: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_BR: HelpfulLink[] = [
   {
     id: 'br-emergency-services-190',
@@ -1377,7 +1368,6 @@ export const HELPFUL_LINKS_BR: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_BD: HelpfulLink[] = [
   {
     id: 'bd-national-emergency-service-999',
@@ -1531,7 +1521,6 @@ export const HELPFUL_LINKS_BD: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_RU: HelpfulLink[] = [
   {
     id: 'ru-emergency-services-112',
@@ -1685,7 +1674,6 @@ export const HELPFUL_LINKS_RU: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_MX: HelpfulLink[] = [
   {
     id: 'mx-emergency-services-911',
@@ -1839,7 +1827,6 @@ export const HELPFUL_LINKS_MX: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_CA: HelpfulLink[] = [
   {
     id: 'ca-emergency-services-911',
@@ -1993,7 +1980,6 @@ export const HELPFUL_LINKS_CA: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_FR: HelpfulLink[] = [
   {
     id: 'fr-emergency-services-112',
@@ -2147,7 +2133,6 @@ export const HELPFUL_LINKS_FR: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_ES: HelpfulLink[] = [
   {
     id: 'es-emergency-services-112',
@@ -2301,7 +2286,6 @@ export const HELPFUL_LINKS_ES: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_DE: HelpfulLink[] = [
   {
     id: 'de-emergency-services-112',
@@ -2455,7 +2439,6 @@ export const HELPFUL_LINKS_DE: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_PT: HelpfulLink[] = [
   {
     id: 'pt-emergency-services-112',
@@ -2609,7 +2592,6 @@ export const HELPFUL_LINKS_PT: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_IE: HelpfulLink[] = [
   {
     id: 'ie-emergency-services-112-999',
@@ -2763,7 +2745,6 @@ export const HELPFUL_LINKS_IE: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_AU: HelpfulLink[] = [
   {
     id: 'au-emergency-services-000',
@@ -2917,7 +2898,6 @@ export const HELPFUL_LINKS_AU: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_IT: HelpfulLink[] = [
   {
     id: 'it-emergency-services-112',
@@ -3071,7 +3051,6 @@ export const HELPFUL_LINKS_IT: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_NL: HelpfulLink[] = [
   {
     id: 'nl-emergency-services-112',
@@ -3225,7 +3204,6 @@ export const HELPFUL_LINKS_NL: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_JP: HelpfulLink[] = [
   {
     id: 'jp-emergency-services-110',
@@ -3379,7 +3357,6 @@ export const HELPFUL_LINKS_JP: HelpfulLink[] = [
   },
 ];
 
-//
 export const HELPFUL_LINKS_BY_COUNTRY: Record<string, HelpfulLink[]> = {
   GB: HELPFUL_LINKS_UK,
   IN: HELPFUL_LINKS_IN,
@@ -3408,7 +3385,6 @@ export const HELPFUL_LINKS_BY_COUNTRY: Record<string, HelpfulLink[]> = {
  * Returns links for a supported country or an empty list when unsupported.
  */
 export function getHelpfulLinksForCountry(countryCode: string | null): HelpfulLink[] {
-  //
   const normalizedCountryCode = countryCode?.toUpperCase() ?? null;
   return normalizedCountryCode ? HELPFUL_LINKS_BY_COUNTRY[normalizedCountryCode] || [] : [];
 }

@@ -1,6 +1,5 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import { StyleSheet } from 'react-native';
-import { useEffect } from 'react';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 

@@ -4,7 +4,6 @@ import { Colours } from '../../constants/Colours';
 import { GlobalStyles } from '../../constants/Styles';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
@@ -16,51 +15,38 @@ interface InputProps extends TextInputProps {
 }
 
 /** Renders a labeled input with validation support. */
-//
 export const Input: React.FC<InputProps> = ({
   label, error, required = false, labelStyle, errorStyle, style, viewStyle, onFocus, onBlur, direction = 'column', ...props }) => {
-  //
   const [isFocused, setIsFocused] = useState(false);
-  //
   const danger = useThemeColour({}, 'danger');
-  //
   const placeholderColour = useThemeColour({}, 'inputPlaceholder');
-  //
   const textColour = useThemeColour({}, 'text');
-  //
   const backgroundColour = useThemeColour({}, 'inputBackground')
 
   /** Marks the input as focused and forwards focus events. */
-  //
   const handleFocus = (e: any) => {
     setIsFocused(true);
     onFocus?.(e);
   };
 
   /** Marks the input as blurred and forwards blur events. */
-  //
   const handleBlur = (e: any) => {
     setIsFocused(false);
     onBlur?.(e);
   };
 
   /** Builds the final input style from focus and validation state. */
-  //
   const inputStyle = useMemo((): TextStyle => {
-    //
     const baseStyle = { ...GlobalStyles.input };
-    //
     if (isFocused) {
       Object.assign(baseStyle, GlobalStyles.inputFocused);
     }
 
-    //
     if (error) Object.assign(baseStyle, { borderColor: danger });
 
     return baseStyle;
   }, [danger, error, isFocused]);
 
-  //
   return (
     <View style={[direction === 'row' ? styles.formGroupRow : styles.formGroupColumn, styles.formGroup, viewStyle]}>
       {label && (
@@ -82,7 +68,6 @@ export const Input: React.FC<InputProps> = ({
   );
 };
 
-//
 const styles = StyleSheet.create({
   formGroup: {
     // marginBottom: 10,
@@ -113,5 +98,4 @@ const styles = StyleSheet.create({
   },
 });
 
-//
 export default Input;

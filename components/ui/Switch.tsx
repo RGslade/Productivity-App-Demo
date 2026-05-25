@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, Switch as RNSwitch, StyleSheet, ViewStyle, TextStyle, SwitchProps, StyleProp} from 'react-native';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 interface CustomSwitchProps extends SwitchProps {
   label?: string;
   containerStyle?: StyleProp<ViewStyle>;
@@ -12,19 +11,14 @@ interface CustomSwitchProps extends SwitchProps {
 }
 
 /** Renders a switch with optional label and description text. */
-//
 export const Switch: React.FC<CustomSwitchProps> = ({
   label, containerStyle, labelStyle, description, descriptionStyle, value, onValueChange,
   ...props
 }) => {
-  //
   const primary = useThemeColour({}, 'primary');
-  //
   const textColour = useThemeColour({}, 'text');
-  //
   const secondaryTextColour = useThemeColour({}, 'textSecondary');
 
-  //
   return (
     <View style={[styles.container, containerStyle]}>
       <View style={styles.content}>
@@ -53,7 +47,6 @@ export const Switch: React.FC<CustomSwitchProps> = ({
   );
 };
 
-//
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
@@ -78,5 +71,4 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-//
 export default Switch;

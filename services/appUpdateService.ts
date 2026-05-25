@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import settingsService from '@/services/settingsService';
 
-//
 export type MandatoryUpdateState = {
   isRequired: boolean;
   minimumVersion: string | null;
@@ -10,17 +9,12 @@ export type MandatoryUpdateState = {
   storeUrl: string | null;
 };
 
-//
 const ANDROID_MIN_VERSION_KEY = 'min_supported_version_android';
-//
 const IOS_MIN_VERSION_KEY = 'min_supported_version_ios';
-//
 const ANDROID_STORE_URL_KEY = 'force_update_store_url_android';
-//
 const IOS_STORE_URL_KEY = 'force_update_store_url_ios';
 
 /** Normalises a version string into numeric parts for comparison. */
-//
 function toVersionParts(version: string): number[] {
   return version
     .split('.')
@@ -29,24 +23,16 @@ function toVersionParts(version: string): number[] {
 }
 
 /** Compares two dotted version strings and returns -1, 0, or 1. */
-//
 function compareVersions(a: string, b: string): number {
-  //
   const aParts = toVersionParts(a);
-  //
   const bParts = toVersionParts(b);
-  //
   const maxLength = Math.max(aParts.length, bParts.length);
 
   for (let i = 0; i < maxLength; i += 1) {
-    //
     const aValue = aParts[i] ?? 0;
-    //
     const bValue = bParts[i] ?? 0;
 
-    //
     if (aValue < bValue) return -1;
-    //
     if (aValue > bValue) return 1;
   }
 
@@ -54,9 +40,7 @@ function compareVersions(a: string, b: string): number {
 }
 
 /** Returns the current platform config keys used for force-update policy. */
-//
 function getPlatformConfigKeys() {
-  //
   if (Platform.OS === 'ios') {
     return {
       minVersionKey: IOS_MIN_VERSION_KEY,
@@ -71,31 +55,23 @@ function getPlatformConfigKeys() {
 }
 
 /** Returns the fallback Google Play URL from the current Android package id. */
-//
 function getAndroidFallbackStoreUrl(): string | null {
-  //
   const androidPackageId = Constants.expoConfig?.android?.package || 'com.example.productivitymobileapp';
 
   return `https://play.google.com/store/apps/details?id=${androidPackageId}`;
 }
 
-//
 class AppUpdateService {
   /** Returns mandatory-update state for the active platform and app version. */
   async getMandatoryUpdateState(currentVersion: string): Promise<MandatoryUpdateState> {
-    //
     try {
-      //
       const { minVersionKey, storeUrlKey } = getPlatformConfigKeys();
-      //
       const [minimumVersion, configuredStoreUrl] = await Promise.all([
         settingsService.getBackendConfigValue(minVersionKey),
         settingsService.getBackendConfigValue(storeUrlKey),
       ]);
 
-      //
       const storeUrl = configuredStoreUrl || (Platform.OS === 'android' ? getAndroidFallbackStoreUrl() : null);
-      //
       const isRequired = Boolean(minimumVersion && compareVersions(currentVersion, minimumVersion) < 0);
 
       return {
@@ -116,7 +92,5 @@ class AppUpdateService {
   }
 }
 
-//
 export const appUpdateService = new AppUpdateService();
-//
 export default appUpdateService;

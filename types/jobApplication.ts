@@ -1,4 +1,3 @@
-//
 export interface JobApplicationRecord {
   id: number;
   user_id: string;
@@ -13,7 +12,6 @@ export interface JobApplicationRecord {
   updated_at: string;
 }
 
-//
 export interface RecordJobApplicationRequest {
   job_id: string;
   title: string;

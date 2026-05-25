@@ -20,12 +20,10 @@ import {
 } from "@/services/subscriptionService";
 // import { REVENUECAT_ENTITLEMENT_ID } from "@/constants/subscription";
 
-//
 type RevenueCatVirtualCurrenciesShape = {
   all: Record<string, { balance: number; code: string; name: string }>;
 };
 
-//
 type RevenueCatContextType = {
   isConfigured: boolean;
   configurationError: string | null;
@@ -47,84 +45,56 @@ type RevenueCatContextType = {
   presentCustomerCenter: () => Promise<void>;
 };
 
-//
 const RevenueCatContext = createContext<RevenueCatContextType | null>(null);
 
-//
 export function useRevenueCat() {
-  //
   const ctx = useContext(RevenueCatContext);
-  //
   if (!ctx) {
     throw new Error("useRevenueCat must be used inside RevenueCatProvider");
   }
   return ctx;
 }
 
-//
 export function RevenueCatProvider({ children }: { children: React.ReactNode }) {
-  //
   const { user, userInfo, refreshAuth } = useAuthContext();
-  //
   const [isConfigured, setIsConfigured] = useState(false);
-  //
   const [configurationError, setConfigurationError] = useState<string | null>(null);
-  //
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
-  //
   const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
-  //
   const [virtualCurrencies, setVirtualCurrencies] = useState<RevenueCatVirtualCurrenciesShape | null>(null);
-  //
   const listenerRef = useRef<CustomerInfoUpdateListener | null>(null);
-  //
   const lastLoggedInUserIdRef = useRef<string | null>(null);
-  //
   const isSyncingProfileRef = useRef(false);
-  //
   const wasPremiumRef = useRef<boolean>(false);
-  //
   const hasRevenueCatSyncErrorRef = useRef(false);
 
-  //
   const isSupported = Platform.OS === "ios" || Platform.OS === "android";
-  //
   const subscriptionProfile = useMemo(
     () => deriveSubscriptionProfile(customerInfo),
     [customerInfo]
   );
-  //
   const lifeNestTokenBalance = useMemo(
     () => resolveLifeNestVirtualCurrency(virtualCurrencies)?.balance ?? 0,
     [virtualCurrencies]
   );
 
-  //
   const refreshCustomerInfo = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return null;
-    //
-    const info = await subscriptionService.getCustomerInfo();
-    setCustomerInfo(info);
-    return info;
+    const nextCustomerInfo = await subscriptionService.getCustomerInfo();
+    setCustomerInfo(nextCustomerInfo);
+    return nextCustomerInfo;
   }, [isConfigured, isSupported]);
 
-  //
   const refreshOfferings = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return null;
-    //
     const nextOfferings = await subscriptionService.getOfferings();
     setOfferings(nextOfferings);
     return nextOfferings;
   }, [isConfigured, isSupported]);
 
-  //
   const refreshVirtualCurrencies = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return null;
     await subscriptionService.invalidateVirtualCurrenciesCache();
-    //
     const nextVirtualCurrencies = await subscriptionService.getVirtualCurrencies();
     setVirtualCurrencies(nextVirtualCurrencies);
     return nextVirtualCurrencies;
@@ -134,15 +104,10 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
    * Ensures RevenueCat is bound to the authenticated user id before any billing action.
    */
   const ensureAuthenticatedRevenueCatIdentity = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured || !user?.id) return false;
-    //
     const sdkAppUserId = await subscriptionService.getAppUserID();
-    //
     const needsLogin = sdkAppUserId !== user.id;
-    //
     if (needsLogin) {
-      //
       const loginResult = await subscriptionService.logIn(user.id);
       setCustomerInfo(loginResult.customerInfo);
     }
@@ -150,16 +115,13 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     return true;
   }, [isConfigured, isSupported, user?.id]);
 
-  //
   useEffect(() => {
     /**
      * Boots RevenueCat and attaches the authenticated app user id when available.
      */
     const initialize = async () => {
-      //
       if (!isSupported) return;
 
-      //
       try {
         await subscriptionService.configure(user?.id);
         setIsConfigured(true);
@@ -176,34 +138,26 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     initialize();
   }, [isSupported, user?.id]);
 
-  //
   useEffect(() => {
-    //
     if (!isSupported || !isConfigured) return;
 
-    listenerRef.current = (info) => {
-      setCustomerInfo(info);
+    listenerRef.current = (nextCustomerInfo) => {
+      setCustomerInfo(nextCustomerInfo);
     };
 
     Purchases.addCustomerInfoUpdateListener(listenerRef.current);
 
-    //
     return () => {
-      //
       if (listenerRef.current) {
         Purchases.removeCustomerInfoUpdateListener(listenerRef.current);
       }
     };
   }, [isConfigured, isSupported]);
 
-  //
   useEffect(() => {
-    //
     const loadRevenueCatState = async () => {
-      //
       if (!isSupported || !isConfigured) return;
 
-      //
       try {
         await Promise.all([refreshCustomerInfo(), refreshOfferings(), refreshVirtualCurrencies()]);
       } catch (error) {
@@ -214,19 +168,13 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     void loadRevenueCatState();
   }, [isConfigured, isSupported, refreshCustomerInfo, refreshOfferings, refreshVirtualCurrencies, user?.id]);
 
-  //
   useEffect(() => {
-    //
     const syncRevenueCatIdentity = async () => {
-      //
       if (!isSupported || !isConfigured) return;
 
-      //
       try {
-        //
         const sdkAppUserIdBefore = await subscriptionService.getAppUserID();
 
-        //
         if (user?.id) {
           await ensureAuthenticatedRevenueCatIdentity();
           await subscriptionService.syncSubscriberAttributes({
@@ -236,11 +184,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           });
           await Promise.allSettled([refreshCustomerInfo(), refreshOfferings(), refreshVirtualCurrencies()]);
         } else {
-          //
           const shouldLogOut =
             Boolean(lastLoggedInUserIdRef.current) ||
             Boolean(sdkAppUserIdBefore && !isAnonymousRevenueCatAppUserId(sdkAppUserIdBefore));
-          //
           if (shouldLogOut) {
             await subscriptionService.logOut();
             lastLoggedInUserIdRef.current = null;
@@ -249,7 +195,6 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           }
         }
 
-        //
         if (user?.id) {
           hasRevenueCatSyncErrorRef.current = false;
         }
@@ -272,19 +217,13 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     userInfo,
   ]);
 
-  //
   useEffect(() => {
-    //
     const syncEntitlementToProfile = async () => {
-      //
       if (!userInfo || !customerInfo || isSyncingProfileRef.current) return;
-      //
       const needsUpdate = userInfo.is_premium_user !== subscriptionProfile.isPremium || (userInfo.subscription_status ?? "inactive") !== subscriptionProfile.status || (userInfo.subscription_product_id ?? null) !== subscriptionProfile.productId || (userInfo.subscription_provider ?? null) !== subscriptionProfile.provider;
 
-      //
       if (!needsUpdate) return;
       isSyncingProfileRef.current = true;
-      //
       try {
         await userService.updateProfile({is_premium_user: subscriptionProfile.isPremium, subscription_status: subscriptionProfile.status, subscription_product_id: subscriptionProfile.productId, subscription_provider: subscriptionProfile.provider,});
         await refreshAuth();
@@ -298,14 +237,10 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     syncEntitlementToProfile();
   }, [customerInfo, refreshAuth, subscriptionProfile, user?.id, userInfo]);
 
-  //
   useEffect(() => {
-    //
     const syncLifeNestUsagePeriod = async () => {
-      //
       if (!userInfo || !customerInfo) return;
 
-      //
       try {
         await lifeNestService.syncSubscriptionUsagePeriod({
           isSubscriptionActive: subscriptionProfile.isPremium && subscriptionProfile.status === "active",
@@ -319,18 +254,14 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     void syncLifeNestUsagePeriod();
   }, [customerInfo, subscriptionProfile, userInfo]);
 
-  //
   useEffect(() => {
-    //
     if (!user?.id) {
       wasPremiumRef.current = false;
       return;
     }
 
-    //
     const currentlyPremium = isProEntitlementActive(customerInfo);
 
-    //
     if (wasPremiumRef.current && !currentlyPremium) {
       Alert.alert(
         'Premium access ended',
@@ -341,78 +272,56 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     wasPremiumRef.current = currentlyPremium;
   }, [customerInfo, user?.id]);
 
-  //
   const purchasePackage = useCallback(
     async (pkg: PurchasesPackage) => {
-      //
       if (!isSupported || !isConfigured) return null;
-      //
       const hasIdentity = await ensureAuthenticatedRevenueCatIdentity();
-      //
       if (!hasIdentity) {
         throw new Error("REVENUECAT_AUTH_USER_MISSING");
       }
-      //
-      const { customerInfo: info } = await subscriptionService.purchasePackage(pkg);
-      setCustomerInfo(info);
+      const { customerInfo: purchasedCustomerInfo } = await subscriptionService.purchasePackage(pkg);
+      setCustomerInfo(purchasedCustomerInfo);
       await refreshVirtualCurrencies();
-      return info;
+      return purchasedCustomerInfo;
     },
     [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshVirtualCurrencies]
   );
 
-  //
   const restorePurchases = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return null;
-    //
     const hasIdentity = await ensureAuthenticatedRevenueCatIdentity();
-    //
     if (!hasIdentity) {
       throw new Error("REVENUECAT_AUTH_USER_MISSING");
     }
-    //
-    const info = await subscriptionService.restorePurchases();
-    setCustomerInfo(info);
+    const restoredCustomerInfo = await subscriptionService.restorePurchases();
+    setCustomerInfo(restoredCustomerInfo);
     await refreshVirtualCurrencies();
-    return info;
+    return restoredCustomerInfo;
   }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshVirtualCurrencies]);
 
-  //
   const presentPaywall = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return null;
     await ensureAuthenticatedRevenueCatIdentity();
-    //
     const result = await subscriptionService.presentPaywall(offerings?.current ?? null);
-    //
     if (subscriptionService.isSuccessfulPaywallResult(result)) {
       await Promise.all([refreshCustomerInfo(), refreshVirtualCurrencies()]);
     }
     return result;
   }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshCustomerInfo, refreshVirtualCurrencies, offerings]);
 
-  //
   const presentPaywallIfNeeded = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return null;
     await ensureAuthenticatedRevenueCatIdentity();
-    //
     const result = await subscriptionService.presentPaywallIfNeeded(offerings?.current ?? null);
-    //
     if (subscriptionService.isSuccessfulPaywallResult(result)) {
       await Promise.all([refreshCustomerInfo(), refreshVirtualCurrencies()]);
     }
     return result;
   }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, offerings, refreshCustomerInfo, refreshVirtualCurrencies]);
 
-  //
   const presentCustomerCenter = useCallback(async () => {
-    //
     if (!isSupported || !isConfigured) return;
-    //
     const hasIdentity = await ensureAuthenticatedRevenueCatIdentity();
-    //
     if (!hasIdentity) {
       throw new Error("REVENUECAT_AUTH_USER_MISSING");
     }
@@ -420,7 +329,6 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     await Promise.all([refreshCustomerInfo(), refreshVirtualCurrencies()]);
   }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshCustomerInfo, refreshVirtualCurrencies]);
 
-  //
   const value = useMemo(
     () => ({
       isConfigured,

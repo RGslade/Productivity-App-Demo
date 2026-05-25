@@ -10,7 +10,6 @@ import { documentService } from '@/services/documentService';
 import type { Document } from '@/types/document';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 export default function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const documentId = id ? parseInt(id) : 0;

@@ -2,9 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import housingService from '@/services/housingService';
 import { HousingListing, HousingSearchError, HousingSearchParams } from '@/types/housing';
 
-//
 export function useHousing() {
-  //
   const searchMutation = useMutation<HousingListing[], HousingSearchError, HousingSearchParams>({
     mutationFn: (params: HousingSearchParams) => housingService.searchListings(params),
     onError: (error) => {

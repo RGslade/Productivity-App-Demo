@@ -12,19 +12,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { formatDate } from '@/hooks/dataHandler';
 import { jobApplicationService } from '@/services/jobApplicationService';
 
-//
 interface SectionProps {
   title: string;
   children: React.ReactNode;
   icon?: string;
 }
 
-//
 const Section: React.FC<SectionProps> = ({ title, children, icon }) => {
-  //
   const textColor = useThemeColour({}, 'text');
 
-  //
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -36,24 +32,18 @@ const Section: React.FC<SectionProps> = ({ title, children, icon }) => {
   );
 };
 
-//
 interface InfoRowProps {
   label: string;
   value?: string | number;
   icon?: string;
 }
 
-//
 const InfoRow: React.FC<InfoRowProps> = ({ label, value, icon }) => {
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const backgroundColor = useThemeColour({}, 'background');
 
-  //
   if (!value) return null;
 
-  //
   return (
     <View style={[styles.infoRow, { backgroundColor }]}>
       {icon && <Ionicons name={icon as any} size={16} color={textColor} style={{ marginRight: 8, minWidth: 20 }} />}
@@ -65,45 +55,30 @@ const InfoRow: React.FC<InfoRowProps> = ({ label, value, icon }) => {
   );
 };
 
-//
 export default function JobDetailsScreen() {
-  //
   const router = useRouter();
-  //
   const { id } = useLocalSearchParams();
-  //
   const themeColor = useThemeColour({}, 'shadowColor');
-  //
   const textColor = useThemeColour({}, 'text');
-  //
   const jobId = typeof id === 'string' ? id : Array.isArray(id) ? id[0] : null;
-  //
   const { job, isLoading, error } = useJobDetails(jobId);
-  //
   const [isApplying, setIsApplying] = useState(false);
 
-  //
   useEffect(() => {
-    //
     if (job?.title) {
       // Update header with job title
     }
   }, [job?.title]);
 
-  //
   const handleApply = async () => {
-    //
     if (!job?.url) {
       Alert.alert('Unable to Apply', 'No application URL available for this job.');
       return;
     }
 
     setIsApplying(true);
-    //
     try {
-      //
       const canOpen = await Linking.canOpenURL(job.url);
-      //
       if (canOpen) {
         await Linking.openURL(job.url);
         await jobApplicationService.recordAppliedJob({
@@ -124,14 +99,10 @@ export default function JobDetailsScreen() {
     }
   };
 
-  //
   const handleShare = async () => {
-    //
     if (!job) return;
 
-    //
     try {
-      //
       const message = `${job.title} at ${job.company}\n\n${job.url || 'Job details'}`;
       await Share.share({
         message,
@@ -143,9 +114,7 @@ export default function JobDetailsScreen() {
     }
   };
 
-  //
   if (error && !isLoading) {
-    //
     return (
       <ThemedView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -159,9 +128,7 @@ export default function JobDetailsScreen() {
     );
   }
 
-  //
   if (isLoading) {
-    //
     return (
       <ThemedView style={styles.container}>
         <LoadingSpinner />
@@ -169,9 +136,7 @@ export default function JobDetailsScreen() {
     );
   }
 
-  //
   if (!job) {
-    //
     return (
       <ThemedView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -185,14 +150,10 @@ export default function JobDetailsScreen() {
   }
 
   // Format salary
-  //
   const formatSalary = (min?: number, max?: number, currency?: string) => {
-    //
     const curr = currency || 'GBP';
-    //
     const currencySymbol = curr === 'GBP' ? '£' : '€';
 
-    //
     if (min && max) {
       return `${currencySymbol}${min.toLocaleString()} - ${currencySymbol}${max.toLocaleString()}`;
     } else if (min) {
@@ -203,7 +164,6 @@ export default function JobDetailsScreen() {
     return '';
   };
 
-  //
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}
@@ -288,7 +248,6 @@ export default function JobDetailsScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

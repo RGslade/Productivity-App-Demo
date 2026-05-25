@@ -4,17 +4,13 @@ import { Button, Card } from './ui';
 import { ThemedText } from './ThemedText';
 import { router } from 'expo-router';
 
-//
 interface PageNotReadyOverlayProps {
     onClose: () => void;
     animationType?: 'none' | 'slide' | 'fade';
     pageName?: string;
 }
-//
 export default function PageNotReadyOverlay({ onClose, animationType = 'none', pageName = 'none' }: PageNotReadyOverlayProps) {
-    //
     const isLoading = false;
-    //
     return (
         <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <ThemedView style={styles.container}>
@@ -41,7 +37,6 @@ export default function PageNotReadyOverlay({ onClose, animationType = 'none', p
     );
 }
 
-//
 const styles = StyleSheet.create({
     container: {
         flex: 1,

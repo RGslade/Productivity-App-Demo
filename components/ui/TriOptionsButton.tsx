@@ -1,7 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, ViewStyle, StyleSheet } from 'react-native';
 
-//
 interface CustomProps {
   options: string[];
   containerStyle?: ViewStyle;
@@ -11,7 +10,6 @@ interface CustomProps {
 }
 
 /** Renders a compact segmented control with three or more options. */
-//
 export const TriOptionsButton = ({
   options,
   containerStyle,
@@ -19,7 +17,6 @@ export const TriOptionsButton = ({
   selectedOption,
   enabled,
 }: CustomProps) => {
-  //
   return (
     <View style={[containerStyle, styles.optionGroup]}>
       {options.map(option => (
@@ -38,7 +35,6 @@ export const TriOptionsButton = ({
   );
 };
 
-//
 const styles = StyleSheet.create({
   optionGroup: {
     flexDirection: 'row',

@@ -1,7 +1,5 @@
-//
 export const DEFAULT_CURRENCY_SYMBOL = '£';
 
-//
 export const MAJOR_CURRENCY_SYMBOLS = [
   { label: 'Pound Sterling (£)', value: '£' },
   { label: 'US Dollar ($)', value: '$' },

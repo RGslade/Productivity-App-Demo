@@ -15,58 +15,34 @@ import { Switch } from '@/components/ui';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { formatDate } from '@/hooks/dataHandler';
 
-//
 export default function EditTodoScreen() {
-  //
   const { id } = useLocalSearchParams();
-  //
   const todoId = parseInt(id as string);
-  //
   const [title, setTitle] = useState('');
-  //
   const [description, setDescription] = useState('');
-  //
   const [categoryId, setCategoryId] = useState<number | null>(null);
-  //
   const [premiumCategoryId, setPremiumCategoryId] = useState<number | null>(null);
-  //
   const [dueDate, setDueDate] = useState<Date | null>(null);
-  //
   const [isComplete, setIsComplete] = useState(false);
-  //
   const [showDatePicker, setShowDatePicker] = useState(false);
-  //
   const [loading, setLoading] = useState(false);
-  //
   const [initialLoading, setInitialLoading] = useState(true);
-  //
   const { categories, premiumCategories, todos, updateTodo, fetchCategories, fetchTodos } = useTodos();
-  //
   const { userInfo } = useAuth();
-  //
   const [unit, setUnit] = useState('');
-  //
   const [remindMe, setRemindMe] = useState(false);
-  //
   const [selected, setSelected] = useState('Numerical');
-  //
   const [progress, setProgress] = useState('0');
-  //
   const [itemKind, setItemKind] = useState<ToDoItemKind>('task');
-  //
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
 
-  //
   const loadData = useCallback(async () => {
-    //
     try {
       await fetchCategories();
       await fetchTodos();
 
       // Find the todo to edit
-      //
       const todo = todos?.find(t => t.id === todoId);
-      //
       if (todo) {
         setTitle(todo.title);
         setDescription(todo.description);
@@ -90,40 +66,32 @@ export default function EditTodoScreen() {
     }
   }, [fetchCategories, fetchTodos, todos, todoId]);
 
-  //
   useEffect(() => {
     if(!title) loadData();
   }, [loadData, title]);
 
-  //
   const handleSave = async () => {
-    //
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title for the task');
       return;
     }
 
-    //
     if (itemKind === 'task') {
-      //
       if (!unit) {
         Alert.alert('Error', 'Please select a unit');
         return;
       }
 
-      //
       if (Number.isNaN(Number.parseFloat(progress))) {
         Alert.alert('Error', 'Please enter a valid number')
         return;
       }
 
-      //
       if (!description.trim()) {
         Alert.alert('Error', 'Please enter a description for the task');
         return;
       }
 
-      //
       if (!categoryId) {
         Alert.alert('Error', 'Please select a category');
         return;
@@ -131,9 +99,7 @@ export default function EditTodoScreen() {
     }
 
     setLoading(true);
-    //
     try {
-      //
       const todoData: UpdateToDoRequest = itemKind === 'checklist'
         ? {
           title: title.trim(),
@@ -168,23 +134,18 @@ export default function EditTodoScreen() {
     }
   };
 
-  //
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
-    //
     if (selectedDate) {
       setDueDate(selectedDate);
     }
   };
 
-  //
   const clearDate = () => {
     setDueDate(null);
   };
 
-  //
   if (initialLoading) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
@@ -192,7 +153,6 @@ export default function EditTodoScreen() {
     );
   }
 
-  //
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -333,7 +293,6 @@ export default function EditTodoScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

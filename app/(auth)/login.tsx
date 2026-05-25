@@ -63,13 +63,14 @@ export default function LoginScreen() {
     }
   };
 
-  //Handle the Google Sign in. This isnt currently working as I have yet to finish setting it up but will be soon as well as more thrird party logins.
+  //Handle the Google sign-in entry point.
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
       const providerUrl = await startGoogleSignIn();
       await Linking.openURL(providerUrl);
     } catch (error) {
+      console.error('[Auth][LoginScreen] Google sign-in failed', error);
       showAlert('Coming Soon', 'Google sign in has not yet been implemented and will be coming soon.');
     } finally {
       setGoogleLoading(false);

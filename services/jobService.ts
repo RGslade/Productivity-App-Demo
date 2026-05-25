@@ -11,7 +11,6 @@ import {Linking} from 'react-native';
 // Commented: Indeed API (alternative, no longer used)
 // const INDEED_API_BASE = 'https://api.indeed.com/v2';
 
-//
 class JobService {
   /**
    * Calculate distance between two coordinates using Haversine formula
@@ -23,20 +22,15 @@ class JobService {
     lat2: number,
     lon2: number,
   ): number {
-    //
     const R = 3959; // Earth's radius in miles
-    //
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    //
     const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    //
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((lat1 * Math.PI) / 180) *
         Math.cos((lat2 * Math.PI) / 180) *
         Math.sin(dLon / 2) *
         Math.sin(dLon / 2);
-    //
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -46,10 +40,8 @@ class JobService {
    * Uses user's search filters to build the Indeed URL
    */
   async searchJobs(params: JobSearchParams): Promise<Job[]> {
-    //
     try {
       // Validate search parameters
-      //
       if (!params.description || params.description.trim().length === 0) {
         throw {
           message: 'Job description search term is required',
@@ -57,7 +49,6 @@ class JobService {
         } as JobSearchError;
       }
 
-      //
       if (!params.location) {
         throw {
           message: 'Location is required for job search',
@@ -66,11 +57,8 @@ class JobService {
       }
 
       // Build Indeed URL with user's search parameters
-      //
       const jobQuery = encodeURIComponent(params.description.trim().replace(' ', '+'));
-      //
       const locationQuery = encodeURIComponent(params.location.postcode);
-      //
       const indeedUrl = `https://uk.indeed.com/jobs?q=${jobQuery}&l=${locationQuery}&radius=${params.distance_miles || 5}`;
 
       // Navigate to Indeed job search
@@ -156,53 +144,35 @@ class JobService {
    * Transform Reed API response to internal Job format
    */
   private transformReedJob(job: ReedJob): Job | null {
-    //
     try {
-      //
       const id = job.jobId?.toString() || '';
-      //
       const title = job.jobTitle || '';
-      //
       const company = job.employerName || '';
-      //
       const description = job.jobDescription || '';
-      //
       const location = job.locationName || '';
-      //
       const url = job.jobUrl || '';
-      //
       const postedDate = job.datePosted || new Date().toISOString();
 
-      //
       if (!id || !title || !company || !location) {
         return null; // Skip incomplete jobs
       }
 
       // Extract salary information
-      //
       let salary_min: number | undefined;
-      //
       let salary_max: number | undefined;
-      //
       let salary_currency = 'GBP';
 
-      //
       if (job.minimumSalary) {
         salary_min = job.minimumSalary;
       }
-      //
       if (job.maximumSalary) {
         salary_max = job.maximumSalary;
       }
 
       // Extract job type
-      //
       let job_type: Job['job_type'] = 'Full-time';
-      //
       if (job.jobType) {
-        //
         const type = job.jobType.toLowerCase();
-        //
         if (type.includes('part')) job_type = 'Part-time';
         else if (type.includes('temp')) job_type = 'Temporary';
         else if (type.includes('contract')) job_type = 'Contract';
@@ -211,30 +181,22 @@ class JobService {
       }
 
       // Extract contract type
-      //
       let contract_type: Job['contract_type'] | undefined;
-      //
       if (job.contractType) {
-        //
         const ctype = job.contractType.toLowerCase();
-        //
         if (ctype.includes('permanent')) contract_type = 'Permanent';
         else if (ctype.includes('temp')) contract_type = 'Temporary';
         else if (ctype.includes('contract')) contract_type = 'Contract';
       }
 
       // Get latitude/longitude from location (Reed API doesn't always provide)
-      //
       let latitude: number | undefined;
-      //
       let longitude: number | undefined;
-      //
       if (job.latitude && job.longitude) {
         latitude = job.latitude;
         longitude = job.longitude;
       }
 
-      //
       const transformedJob: Job = {
         id,
         title,
@@ -271,5 +233,4 @@ class JobService {
    */
 }
 
-//
 export default new JobService();

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notesService } from '@/services/notesService';
 import { CreateNoteRequest, UpdateNoteRequest } from '@/types/notes';
 
-//
 export const noteKeys = {
   all: ['notes'] as const,
   lists: () => [...noteKeys.all, 'list'] as const,
@@ -11,19 +10,15 @@ export const noteKeys = {
   detail: (id: number) => [...noteKeys.details(), id] as const,
 };
 
-//
 export const useNotes = () => {
-  //
   const queryClient = useQueryClient();
 
-  //
   const notesQuery = useQuery({
     queryKey: noteKeys.lists(),
     queryFn: () => notesService.getNotes(),
     staleTime: 2 * 60 * 1000,
   });
 
-  //
   const createMutation = useMutation({
     mutationFn: (data: CreateNoteRequest) => notesService.createNote(data),
     onSuccess: () => {
@@ -34,7 +29,6 @@ export const useNotes = () => {
     },
   });
 
-  //
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateNoteRequest }) => notesService.updateNote(id, data),
     onSuccess: (updatedNote, { id }) => {
@@ -46,7 +40,6 @@ export const useNotes = () => {
     },
   });
 
-  //
   const deleteMutation = useMutation({
     mutationFn: (id: number) => notesService.deleteNote(id),
     onSuccess: (_, id) => {
@@ -72,7 +65,6 @@ export const useNotes = () => {
   };
 };
 
-//
 export const useNote = (id: number) => {
   return useQuery({
     queryKey: noteKeys.detail(id),

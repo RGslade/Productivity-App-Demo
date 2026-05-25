@@ -115,7 +115,7 @@ export default function BudgetMonthScreen() {
           </ThemedView>
         </ThemedView>
 
-        <ThemedView Sectionstyle={styles.chartCard} lightColour={backgroundColour} darkColour={backgroundColour}>
+        <ThemedView style={styles.chartCard} lightColour={backgroundColour} darkColour={backgroundColour}>
           <ThemedView style={styles.chartContainer} lightColour={backgroundColour} darkColour={backgroundColour}>
             <ThemedView style={[styles.yAxisText, { top: -5 }]} lightColour={backgroundColour} darkColour={backgroundColour}><ThemedText style={[styles.yAxisLabel, {color:textColour}]}>{totalIncome > totalExpenses ? formatCurrency(totalIncome) : formatCurrency(totalExpenses)}</ThemedText></ThemedView>
             <ThemedView style={[styles.yAxisText, { bottom: -5 }]} lightColour={backgroundColour} darkColour={backgroundColour}><ThemedText style={[styles.yAxisLabel, {color: textColour}]}>{formatCurrency(0)}</ThemedText></ThemedView>

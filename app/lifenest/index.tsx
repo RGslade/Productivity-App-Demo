@@ -30,17 +30,14 @@ import {
   SendMessageRequest,
 } from '@/types/chatBot';
 
-//
 const SAMPLE_QUESTIONS = [
   'How can I budget better for moving out?',
   'Help me plan my week with my work hours and free time.',
   'What should I consider before renting my first place?',
 ];
 
-//
 const DEFAULT_LIFENEST_MODEL = 'gpt-4o';
 
-//
 const REPORT_REASONS = [
   'Unsafe advice',
   'Incorrect information',
@@ -50,93 +47,53 @@ const REPORT_REASONS = [
 ];
 
 /** Truncates one title for the LifeNest header so the purchase CTA can fit beside it. */
-//
 function truncateConversationTitle(title: string) {
   return title.length > 20 ? `${title.slice(0, 20)}...` : title;
 }
 
 /** Renders the LifeNest premium chat experience and token usage controls. */
-//
 export default function LifeNestScreen() {
-  //
   const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
-  //
   const requestedConversationId = Array.isArray(conversationId) ? conversationId[0] : conversationId;
-  //
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  //
   const [inputMessage, setInputMessage] = useState('');
-  //
   const [isLoading, setIsLoading] = useState(false);
-  //
   const [showWelcome, setShowWelcome] = useState(true);
-  //
   const [models, setModels] = useState<string[]>([]);
-  //
   const [model, setModel] = useState<string | undefined>();
-  //
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  //
   const [selectedConversationId, setSelectedConversationId] = useState<string>('');
-  //
   const [selectedConversationTitle, setSelectedConversationTitle] = useState<string>('New conversation');
-  //
   const [historyVisible, setHistoryVisible] = useState(false);
-  //
   const scrollViewRef = useRef<ScrollView>(null);
-  //
   const { userInfo } = useAuth();
-  //
   const [backgroundColour, setBackgroundColour] = useState<string>('#FFFFFF');
-  //
   const [reportVisible, setReportVisible] = useState(false);
-  //
   const [reportReason, setReportReason] = useState<string>('');
-  //
   const [reportDetails, setReportDetails] = useState('');
-  //
   const [reportingMessage, setReportingMessage] = useState<ChatMessage | null>(null);
-  //
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  //
   const [showTermsModal, setShowTermsModal] = useState(false);
-  //
   const [monthlyUsage, setMonthlyUsage] = useState<LifeNestMonthlyUsageSummary | null>(null);
-  //
   const [isUsageBlocked, setIsUsageBlocked] = useState(false);
-  //
   const [showUsageWarning, setShowUsageWarning] = useState(false);
-  //
   const { data: lifeNestTermsVersion } = useLifeNestTermsVersion();
-  //
   const activeLifeNestTermsVersion = lifeNestTermsVersion || 'v1';
-  //
   const warningShownRef = useRef(false);
-  //
   const blockedShownRef = useRef(false);
-  //
   const isInitialisedRef = useRef(false);
-  //
   const inputTokenCost = useMemo(() => calculateLifeNestTokensForMessage(inputMessage), [inputMessage]);
-  //
   const remainingTokenCount = monthlyUsage?.totalTokensRemaining ?? 0;
-  //
   const textColour = useThemeColour({}, 'text');
-  //
   const inputBackgroundColour = useThemeColour({}, 'inputBackground');
-  //
   const inputBorderColour = useThemeColour({}, 'inputBorder');
-  //
   const hasInsufficientTokensForMessage = Boolean(
     inputTokenCost > 0 && monthlyUsage && inputTokenCost > remainingTokenCount
   );
 
   /** Picks the best starting model, preferring the user's saved setting when it is usable. */
-  //
   const resolveDefaultModel = useCallback((availableModels: string[], preferredModel?: string | null) => {
-    //
     const usableModels = availableModels.filter((candidate) => candidate && candidate !== 'None');
-    //
     if (preferredModel && preferredModel !== 'None') {
       return preferredModel;
     }
@@ -145,9 +102,7 @@ export default function LifeNestScreen() {
   }, []);
 
   /** Builds a user-facing date label for the next monthly usage reset. */
-  //
   const getNextResetLabel = (periodEndIso?: string | null): string => {
-    //
     if (periodEndIso) {
       return new Date(periodEndIso).toLocaleDateString([], { month: 'long', day: 'numeric' });
     }
@@ -155,29 +110,21 @@ export default function LifeNestScreen() {
     return 'when your subscription renews';
   };
 
-  //
   useEffect(() => {
-    //
     if (isInitialisedRef.current) return;
     isInitialisedRef.current = true;
-    //
     let isCancelled = false;
 
-    //
     const init = async () => {
-      //
       try {
-        //
         const [availableModels, chatBotSettings, userConversations, currentUsage] = await Promise.all([
           lifeNestService.getModels(),
           settingsService.getChatBotSettings(),
           lifeNestService.getUserConversations(),
           lifeNestService.getCurrentMonthlyUsageSummary(),
         ]);
-        //
         if (isCancelled) return;
 
-        //
         const defaultModel = resolveDefaultModel(availableModels, chatBotSettings.preferred_model);
         setBackgroundColour(chatBotSettings.background_colour);
         setModels(availableModels.includes(defaultModel) ? availableModels : [defaultModel, ...availableModels]);
@@ -185,19 +132,14 @@ export default function LifeNestScreen() {
         setConversations(userConversations);
         setMonthlyUsage(currentUsage);
 
-        //
         if (userConversations.length > 0) {
-          //
           const requestedConversation = requestedConversationId
             ? userConversations.find((conv) => conv.id === requestedConversationId)
             : undefined;
-          //
           const initialConversation = requestedConversation || userConversations[0];
           setSelectedConversationId(initialConversation.id);
           setSelectedConversationTitle(initialConversation.title || 'New conversation');
-          //
           const history = await lifeNestService.getChatHistory(initialConversation.id);
-          //
           if (isCancelled) return;
           setMessages(history);
           setShowWelcome(history.length === 0);
@@ -205,51 +147,41 @@ export default function LifeNestScreen() {
           setShowWelcome(true);
         }
       } catch (error) {
-        console.error('Operation failed');
+        console.error('LifeNest initialisation failed', error);
       }
     };
 
     void init();
 
-    //
     return () => {
       isCancelled = true;
     };
   }, [requestedConversationId, resolveDefaultModel]);
 
   useFocusEffect(
-    //
     useCallback(() => {
-      //
       let isCancelled = false;
 
-      //
       const refreshUsage = async () => {
-        //
         try {
-          //
           const currentUsage = await lifeNestService.getCurrentMonthlyUsageSummary();
-          //
           if (!isCancelled) {
             setMonthlyUsage(currentUsage);
           }
         } catch (error) {
-          console.error('Operation failed');
+          console.error('LifeNest usage refresh failed', error);
         }
       };
 
       void refreshUsage();
 
-      //
       return () => {
         isCancelled = true;
       };
     }, [])
   );
 
-  //
   useEffect(() => {
-    //
     if (!monthlyUsage || monthlyUsage.totalTokensAvailable <= 0) {
       setIsUsageBlocked(false);
       setShowUsageWarning(false);
@@ -258,17 +190,13 @@ export default function LifeNestScreen() {
       return;
     }
 
-    //
     const ratioUsed = monthlyUsage.totalTokensUsed / monthlyUsage.totalTokensAvailable;
-    //
     const hasReachedLimit = ratioUsed >= 1;
-    //
     const isNearLimit = ratioUsed >= LIFENEST_USAGE_WARNING_RATIO && !hasReachedLimit;
 
     setIsUsageBlocked(hasReachedLimit);
     setShowUsageWarning(isNearLimit);
 
-    //
     if (hasReachedLimit && !blockedShownRef.current) {
       blockedShownRef.current = true;
       Alert.alert(
@@ -277,12 +205,10 @@ export default function LifeNestScreen() {
       );
     }
 
-    //
     if (!hasReachedLimit) {
       blockedShownRef.current = false;
     }
 
-    //
     if (isNearLimit && !warningShownRef.current) {
       warningShownRef.current = true;
       Alert.alert(
@@ -291,37 +217,28 @@ export default function LifeNestScreen() {
       );
     }
 
-    //
     if (!isNearLimit) {
       warningShownRef.current = false;
     }
   }, [monthlyUsage]);
 
-  //
   useEffect(() => {
-    //
     if (!userInfo?.is_premium_user || !userInfo.id) return;
-    //
     const hasAccepted = userInfo.lifenest_terms_accepted === true;
-    //
     const acceptedVersion = userInfo.lifenest_terms_version_accepted;
 
-    //
     if (!hasAccepted || acceptedVersion !== activeLifeNestTermsVersion) {
       setShowTermsModal(true);
     }
   }, [activeLifeNestTermsVersion, userInfo]);
 
   /** Persists acceptance of the latest LifeNest terms. */
-  //
   const handleAcceptTerms = async () => {
-    //
     if (!userInfo?.id) {
       setShowTermsModal(false);
       return;
     }
 
-    //
     try {
       await userService.updateUser({
         lifenest_terms_accepted: true,
@@ -329,49 +246,39 @@ export default function LifeNestScreen() {
         lifenest_terms_version_accepted: activeLifeNestTermsVersion,
       });
     } catch (error) {
-      console.error('Operation failed');
+      console.error('LifeNest terms acceptance failed', error);
     } finally {
       setShowTermsModal(false);
     }
   };
 
-  //
   useEffect(() => {
-    //
     const timer = setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
-    //
     return () => clearTimeout(timer);
   }, [isLoading, messages]);
 
   /** Sends one prompt to LifeNest after model and token checks pass. */
-  //
   const handleSendMessage = async (messageText?: string) => {
-    //
     const text = messageText ?? inputMessage.trim();
-    //
     if (!text) {
       Alert.alert('Error', 'Please enter a message.');
       return;
     }
 
-    //
     if (!model) {
       Alert.alert('Error', 'Please select a model first.');
       return;
     }
 
-    //
     const messageTokenCost = calculateLifeNestTokensForMessage(text);
-    //
     if (monthlyUsage && monthlyUsage.totalTokensRemaining <= 0) {
       Alert.alert('Out of tokens', 'You are out of tokens. Use the "Get Tokens" button to purchase more.');
       return;
     }
 
-    //
     if (monthlyUsage && messageTokenCost > monthlyUsage.totalTokensRemaining) {
       Alert.alert(
         'Not enough tokens',
@@ -380,31 +287,24 @@ export default function LifeNestScreen() {
       return;
     }
 
-    //
     if (isLoading) return;
     setInputMessage('');
     setShowWelcome(false);
     setIsLoading(true);
 
-    //
     try {
-      //
       const request: SendMessageRequest = {
         message: text,
         model,
         conversationId: selectedConversationId,
       };
-      //
       const conv = await lifeNestService.sendMessage(request);
-      //
       if (!selectedConversationId) {
         setSelectedConversationId(conv.id);
         setSelectedConversationTitle(conv.title || text.slice(0, 30) || 'New conversation');
       }
 
-      //
       const createdAt = new Date().toISOString();
-      //
       const userMessage: ChatMessage = {
         id: Date.now() * -1,
         conversation_id: conv.id,
@@ -416,36 +316,29 @@ export default function LifeNestScreen() {
       };
       setMessages((currentMessages) => [...currentMessages, userMessage]);
 
-      //
       const responseRequest =
         request.conversationId === '' || request.conversationId === undefined
           ? { message: text, model: conv.model, conversationId: conv.id }
           : request;
-      //
       const { aiResponse, conversationId: nextConversationId, usage } = await lifeNestService.receiveMessage(responseRequest);
       setMessages((currentMessages) => [...currentMessages, ...aiResponse]);
       setSelectedConversationId(nextConversationId);
 
-      //
       if (usage) {
         showTokenUsageToast(usage.tokensUsed);
-        //
         const nextUsage = await lifeNestService.getCurrentMonthlyUsageSummary();
         setMonthlyUsage(nextUsage);
       }
 
-      //
       const updatedConversations = await lifeNestService.getUserConversations();
       setConversations(updatedConversations);
 
-      //
       const currentConversation = updatedConversations.find((conversation) => conversation.id === nextConversationId);
-      //
       if (currentConversation) {
         setSelectedConversationTitle(currentConversation.title || 'New conversation');
       }
     } catch (error) {
-      console.error('Operation failed');
+      console.error('LifeNest message send failed', error);
       Alert.alert('Error', 'Failed to send message. Please try again.');
     } finally {
       setIsLoading(false);
@@ -453,26 +346,21 @@ export default function LifeNestScreen() {
   };
 
   /** Opens the history sheet. */
-  //
   const openHistory = () => setHistoryVisible(true);
 
   /** Closes the history sheet. */
-  //
   const closeHistory = () => setHistoryVisible(false);
 
   /** Loads a selected conversation into the active chat view. */
-  //
   const handleSelectConversation = async (conversation: Conversation) => {
-    //
     try {
-      //
       const history = await lifeNestService.getChatHistory(conversation.id);
       setMessages(history);
       setSelectedConversationId(conversation.id);
       setSelectedConversationTitle(conversation.title || 'New conversation');
       setShowWelcome(history.length === 0);
     } catch (error) {
-      console.error('Operation failed');
+      console.error('LifeNest conversation load failed', error);
       Alert.alert('Error', 'Could not load that conversation.');
     } finally {
       closeHistory();
@@ -480,7 +368,6 @@ export default function LifeNestScreen() {
   };
 
   /** Clears the current conversation state and starts a new chat. */
-  //
   const handleNewChat = () => {
     setMessages([]);
     setSelectedConversationId('');
@@ -490,14 +377,12 @@ export default function LifeNestScreen() {
   };
 
   /** Sends a suggested prompt through the same path as the typed message submit button. */
-  //
   const handleSampleQuestionPress = (question: string) => {
     setInputMessage(question);
     void handleSendMessage(question);
   };
 
   /** Opens the assistant response reporting modal. */
-  //
   const openReportModal = (message: ChatMessage) => {
     setReportingMessage(message);
     setReportReason('');
@@ -506,9 +391,7 @@ export default function LifeNestScreen() {
   };
 
   /** Closes the assistant response reporting modal. */
-  //
   const closeReportModal = () => {
-    //
     if (isSubmittingReport) return;
     setReportVisible(false);
     setReportingMessage(null);
@@ -517,21 +400,17 @@ export default function LifeNestScreen() {
   };
 
   /** Sends the selected report reason and optional details for an assistant response. */
-  //
   const handleSubmitReport = async () => {
-    //
     if (!reportingMessage || !selectedConversationId) {
       Alert.alert('Error', 'Missing report context. Please try again.');
       return;
     }
 
-    //
     if (!reportReason) {
       Alert.alert('Error', 'Please choose a report reason.');
       return;
     }
 
-    //
     const request: ChatFeedbackReportRequest = {
       conversationId: selectedConversationId,
       messageId: reportingMessage.id,
@@ -540,14 +419,13 @@ export default function LifeNestScreen() {
       details: reportDetails.trim() || undefined,
     };
 
-    //
     try {
       setIsSubmittingReport(true);
       await lifeNestService.reportAssistantMessage(request);
       Alert.alert('Report sent', 'Thank you. We have submitted this report for review.');
       closeReportModal();
     } catch (error) {
-      console.error('Operation failed');
+      console.error('LifeNest response report failed', error);
       Alert.alert('Error', 'We could not send the report. Please try again.');
     } finally {
       setIsSubmittingReport(false);
@@ -555,19 +433,15 @@ export default function LifeNestScreen() {
   };
 
   /** Formats one ISO timestamp into a local time label. */
-  //
   const formatTime = (timestamp: string): string =>
     new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   /** Formats one ISO timestamp into a short month/day label. */
-  //
   const formatDateShort = (timestamp: string): string =>
     new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
-  //
   const currentTitle = selectedConversationTitle || 'New conversation';
 
-  //
   return (
     <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ThemedView style={styles.container}>
@@ -668,9 +542,7 @@ export default function LifeNestScreen() {
           ) : null}
 
           {messages.map((message) => {
-            //
             const isAI = !message.is_user_message;
-            //
             return (
               <ThemedView
                 key={message.id}
@@ -858,7 +730,6 @@ export default function LifeNestScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

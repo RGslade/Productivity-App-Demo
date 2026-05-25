@@ -1,6 +1,5 @@
 import { ThemeMode } from "./theme";
 
-//
 export interface UserSettingsAccount {
   id: string;
   user_id: string;
@@ -10,7 +9,6 @@ export interface UserSettingsAccount {
   session_timeout: number;
 }
 
-//
 export interface UserSettingsDisplay {
   id: string;
   user_id: string;
@@ -20,7 +18,6 @@ export interface UserSettingsDisplay {
   updated_at: string;
 }
 
-//
 export interface UserSettingsToDo {
   id: string;
   user_id: string;
@@ -30,7 +27,6 @@ export interface UserSettingsToDo {
   last_notification_no_tasks_sent?: string;
 }
 
-//
 export interface UserSettingsTransactions {
   id: string;
   user_id: string;
@@ -39,7 +35,6 @@ export interface UserSettingsTransactions {
   updated_at: string;
 }
 
-//
 export interface UserSettingsChatBot {
   id: string;
   user_id: string;
@@ -49,7 +44,6 @@ export interface UserSettingsChatBot {
   updated_at: string;
 }
 
-//
 export interface AllSettings {
   account: UserSettingsAccount;
   display: UserSettingsDisplay;
@@ -59,12 +53,10 @@ export interface AllSettings {
 }
 
 // Theme enum for consistency
-//
 export enum AppTheme {
   System = 'system',
   Light = 'light',
   Dark = 'dark'
 }
 
-//
 export type SettingsSection = 'profile' | 'appearance' | 'dashboard' | 'transactions' | 'lifenest' | 'account' | 'chatBot' | 'subscription' | null;

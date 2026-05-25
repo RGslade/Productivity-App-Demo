@@ -2,7 +2,6 @@ import { useThemeColour } from '@/hooks/useThemeColour';
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
 
-//
 interface ProgressBarProps {
   percentage: number;
   editable?: boolean;
@@ -11,29 +10,22 @@ interface ProgressBarProps {
 }
 
 /** Renders a progress indicator with an optional editable percentage input. */
-//
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   percentage,
   editable = false,
   onChange,
   containerStyle,
 }) => {
-  //
   const clamped = Math.max(0, Math.min(percentage, 100));
-//
 const textColour = useThemeColour({}, 'text');
   /** Parses user input and emits valid numeric progress values. */
-  //
   const handleChangeText = (text: string) => {
-    //
     const num = parseInt(text, 10);
-    //
     if (!Number.isNaN(num) && onChange) {
       onChange(num);
     }
   };
 
-  //
   return (
     <View style={[styles.wrapper, containerStyle]}>
       <View style={styles.labelRow}>
@@ -55,7 +47,6 @@ const textColour = useThemeColour({}, 'text');
   );
 };
 
-//
 const styles = StyleSheet.create({
   wrapper: {
     padding: 10,

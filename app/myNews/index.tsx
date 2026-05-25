@@ -11,7 +11,6 @@ import { newsService } from '@/services/newsService';
 import { getCurrentCountryCodeFromLocale, isMyNewsAvailable } from '@/hooks/dataHandler';
 import { NewsCategory, NewsCategoryFilter } from '@/types/news';
 
-//
 const CATEGORY_LABELS: Record<NewsCategory, string> = {
   business: 'Business',
   strange: 'Strange',
@@ -19,43 +18,27 @@ const CATEGORY_LABELS: Record<NewsCategory, string> = {
   uk: 'UK',
 };
 
-//
 const CATEGORY_ORDER: NewsCategory[] = ['business', 'strange', 'politics', 'uk'];
 
-//
 export default function MyNewsScreen() {
-  //
   const queryClient = useQueryClient();
-  //
   const [selectedFilter, setSelectedFilter] = useState<NewsCategoryFilter>('all');
-  //
   const countryCode = getCurrentCountryCodeFromLocale();
-  //
   const isRegionSupported = isMyNewsAvailable(countryCode);
-  //
   const { data, loading, error, refetch, isRefetching } = useNews();
 
-  //
   const refreshNews = useCallback(async () => {
-    //
     const refreshed = await newsService.getNews();
     queryClient.setQueryData(newsKeys.all, refreshed);
     await refetch();
   }, [queryClient, refetch]);
-  //
   const backgroundColour = useThemeColour({}, 'background');
-  //
   const textSecondary = useThemeColour({}, 'textSecondary');
-  //
   const borderColour = useThemeColour({}, 'border');
-  //
   const cardBackground = useThemeColour({}, 'cardBackground');
 
-  //
   const onOpenArticle = useCallback(async (url: string) => {
-    //
     const canOpen = await Linking.canOpenURL(url);
-    //
     if (!canOpen) {
       Alert.alert('Unable to open link', 'Please try again later.');
       return;
@@ -63,9 +46,7 @@ export default function MyNewsScreen() {
     await Linking.openURL(url);
   }, []);
 
-  //
   const onRefresh = useCallback(async () => {
-    //
     try {
       await refreshNews();
     } catch {
@@ -74,17 +55,12 @@ export default function MyNewsScreen() {
   }, [refreshNews, refetch]);
 
   useFocusEffect(
-    //
     useCallback(() => {
-      //
       let isActive = true;
 
       // Only refresh while this screen is focused.
-      //
       const refreshWhileFocused = async () => {
-        //
         if (!isActive) return;
-        //
         try {
           await refreshNews();
         } catch {
@@ -93,10 +69,8 @@ export default function MyNewsScreen() {
       };
 
       refreshWhileFocused();
-      //
       const intervalId = setInterval(refreshWhileFocused, 10 * 60 * 1000);
 
-      //
       return () => {
         isActive = false;
         clearInterval(intervalId);
@@ -104,29 +78,20 @@ export default function MyNewsScreen() {
     }, [refreshNews, refetch])
   );
 
-  //
   const filteredCategories = useMemo(() => {
-    //
     const categories = data?.categories || [];
-    //
     if (selectedFilter === 'all') return categories;
     return categories.filter(item => item.category === selectedFilter);
   }, [data, selectedFilter]);
 
-  //
   const message = useMemo(() => {
-    //
     if (!error) return null;
-    //
     const typedError = error as { code?: string };
-    //
     if (typedError?.code === 'OFFLINE') return 'Your internet connection appears to be unavailable right now.';
     return 'News information is not available right now.';
   }, [error]);
 
-  //
   if (loading && !data) {
-    //
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
@@ -134,7 +99,6 @@ export default function MyNewsScreen() {
     );
   }
 
-  //
   return (
     <View style={[styles.screenContainer, { backgroundColor: backgroundColour }]}>
       <ScrollView
@@ -200,7 +164,6 @@ export default function MyNewsScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,

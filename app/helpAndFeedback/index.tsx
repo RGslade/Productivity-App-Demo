@@ -8,18 +8,12 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { useAuth } from '@/hooks/useAuth';
 import * as settingsService from '@/services/settingsService';
 import { FEEDBACK_CATEGORIES, FeedbackForm } from '@/types/feedback';
 import { useThemeColour } from '@/hooks/useThemeColour';
 
-//
 export default function FeedbackScreen() {
-  //
-  const { user } = useAuth();
-  //
   const [loading, setLoading] = useState(false);
-  //
   const [formData, setFormData] = useState<FeedbackForm>({
     subject: '',
     feedback_text: '',
@@ -28,27 +22,18 @@ export default function FeedbackScreen() {
     created_at: new Date().toISOString()
   });
 
-  //
   const [errors, setErrors] = useState<Record<string, string>>({});
-  //
   const isIOS = Platform.OS === 'ios';
-  //
   const appVersion = Constants.expoConfig?.version || '1.0.2';
-  //
   const androidPackageId = Constants.expoConfig?.android?.package || 'com.example.productivitymobileapp';
-  //
   const storeButtonText = isIOS ? 'Rate us on App Store' : 'Rate us on Google Play';
-  //
   const validateForm = (): boolean => {
-    //
     const newErrors: Record<string, string> = {};
 
-    //
     if (!formData.subject.trim()) {
       newErrors.subject = 'Subject is required';
     }
 
-    //
     if (!formData.feedback_text.trim()) {
       newErrors.message = 'Message is required';
     } else if (formData.feedback_text.length < 10) {
@@ -59,16 +44,13 @@ export default function FeedbackScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  //
   const handleSubmit = async () => {
-    //
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
 
-    //
     try {
       settingsService.settingsService.insertFeedback(formData)
 
@@ -107,15 +89,12 @@ export default function FeedbackScreen() {
     }
   };
 
-  //
-  const updateField = (field: keyof FeedbackForm, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const updateField = <Field extends keyof FeedbackForm>(field: Field, fieldValue: FeedbackForm[Field]) => {
+    setFormData(prev => ({ ...prev, [field]: fieldValue }));
 
     // Clear error for this field
-    //
     if (errors[field]) {
       setErrors(prev => {
-        //
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
@@ -123,17 +102,13 @@ export default function FeedbackScreen() {
     }
   };
 
-  //
   const handleStoreRatingPress = async () => {
-    //
     const storeUrl = isIOS ? null : `https://play.google.com/store/apps/details?id=${androidPackageId}`;
-    //
     if (!storeUrl) {
       Alert.alert('App Store link pending', 'Add your iOS App Store URL before enabling this button for iOS builds.');
       return;
     }
 
-    //
     try {
       await Linking.openURL(storeUrl);
     } catch (error) {
@@ -142,12 +117,9 @@ export default function FeedbackScreen() {
     }
   };
 
-  //
   const backgroundColour = useThemeColour({}, 'background');
-  //
   const textColour = useThemeColour({}, 'text');
 
-  //
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={styles.scrollContainer}>
@@ -280,7 +252,6 @@ export default function FeedbackScreen() {
           </Card>
           <Card style={styles.infoCard}>
             <Button title="Donate" style={styles.donateButton} onPress={async () => {
-              //
               try {
                 await Linking.openURL('https://example.com/donation');
               } catch (error) {
@@ -309,7 +280,6 @@ export default function FeedbackScreen() {
   );
 }
 
-//
 const styles = StyleSheet.create({
   container: {
     flex: 1,

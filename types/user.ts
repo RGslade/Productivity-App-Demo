@@ -1,9 +1,7 @@
 import { EmploymentStatus } from '@/constants/employment';
 
-//
 export type JobStatus = EmploymentStatus;
 
-//
 export interface UserInfo {
   id: number; // bigint in DB
   first_name: string;
@@ -41,7 +39,6 @@ export interface UserInfo {
   lifenest_terms_version_accepted?: string | null;
 }
 
-//
 export interface UpdateProfileRequest {
   first_name?: string;
   middle_names?: string;
@@ -75,13 +72,11 @@ export interface UpdateProfileRequest {
   lifenest_terms_version_accepted?: string | null;
 }
 
-//
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
-//
 export interface AccountCompletionPrefill {
   email: string;
   first_name?: string;
@@ -93,13 +88,11 @@ export interface AccountCompletionPrefill {
   privacy_policy_accepted?: boolean;
 }
 
-//
 export interface LoginResult {
   status: 'authenticated' | 'incomplete_profile';
   prefill?: AccountCompletionPrefill;
 }
 
-//
 export interface RegisterRequest {
   email: string;
   password: string;
@@ -130,13 +123,11 @@ export interface RegisterRequest {
   lifenest_terms_version_accepted?: string | null;
 }
 
-//
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
 
-//
 export interface LoginResponse {
   id: string;
   email: string;

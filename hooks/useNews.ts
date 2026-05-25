@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { newsService } from '@/services/newsService';
 
-//
 export const newsKeys = {
   all: ['news'] as const,
 };
 
-//
 export const useNews = () => {
-  //
   const query = useQuery({
     queryKey: newsKeys.all,
     queryFn: () => newsService.getNews(),

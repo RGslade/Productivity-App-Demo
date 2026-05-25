@@ -1,9 +1,7 @@
 import type { UserInfo } from './user';
 
-//
 export type ToDoItemKind = 'task' | 'checklist';
 
-//
 export interface ChecklistItem {
   id: number;
   todo_id: number;
@@ -15,7 +13,6 @@ export interface ChecklistItem {
   updated_at?: string;
 }
 
-//
 export interface ToDoItem {
   id: number; // bigint in DB
   created_at: string; // timestamp with time zone
@@ -40,12 +37,10 @@ export interface ToDoItem {
   last_overdue_reminder_sent?: string;
 }
 
-//
 export const ToDoTypes = [
   'Numerical', 'Percentage', 'Text/non-quantifiable', 'Yes/No | True/False'
 ];
 
-//
 export interface Category {
   id: number; // bigint in DB
   created_at: string; // timestamp with time zone
@@ -54,7 +49,6 @@ export interface Category {
   todos?: ToDoItem[];
 }
 
-//
 export interface CreateToDoRequest {
   title: string;
   description: string;
@@ -68,7 +62,6 @@ export interface CreateToDoRequest {
   checklist_items?: string[];
 }
 
-//
 export interface UpdateToDoRequest {
   title?: string;
   description?: string;
@@ -85,17 +78,14 @@ export interface UpdateToDoRequest {
   last_overdue_reminder_sent?: string;
 }
 
-//
 export interface CreateCategoryRequest {
   name: string;
 }
 
-//
 export interface UpdateCategoryRequest {
   name: string;
 }
 
-//
 export interface TodoStats {
   total: number;
   completed: number;
@@ -103,7 +93,6 @@ export interface TodoStats {
   overdue: number;
 }
 
-//
 export interface PremiumCategory {
   id: number;
   name: string;
