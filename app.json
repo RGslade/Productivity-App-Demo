@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Productivity Mobile App",
-    "slug": "productivity-mobile-app",
+    "name": "Productivity App",
+    "slug": "productivity-app",
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "scheme": "productivitymobileapp",
+    "scheme": "productivityapp",
     "userInterfaceStyle": "automatic",
     "platforms": [
       "ios",
@@ -27,7 +27,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.example.productivitymobileapp",
+      "bundleIdentifier": "com.example.productivityapp",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -35,7 +35,7 @@
       }
     },
     "android": {
-      "package": "com.example.productivitymobileapp",
+      "package": "com.example.productivityapp",
       "versionCode": 2,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {

@@ -1,4 +1,4 @@
-project_id = "productivity-mobile-app-portfolio"
+project_id = "productivity-app-portfolio"
 
 [api]
 enabled = true
@@ -19,9 +19,9 @@ api_url = "http://127.0.0.1:54321"
 
 [auth]
 enabled = true
-site_url = "productivitymobileapp://auth/callback"
+site_url = "productivityapp://auth/callback"
 additional_redirect_urls = [
-  "productivitymobileapp://auth/callback",
+  "productivityapp://auth/callback",
   "exp://127.0.0.1:8081/--/auth/callback",
   "http://localhost:8081/--/auth/callback"
 ]

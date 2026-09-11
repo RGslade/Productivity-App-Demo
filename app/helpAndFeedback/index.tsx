@@ -28,7 +28,7 @@ export default function FeedbackScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const isIOS = Platform.OS === 'ios';
   const appVersion = Constants.expoConfig?.version || '1.0.2';
-  const androidPackageId = Constants.expoConfig?.android?.package || 'com.example.productivitymobileapp';
+  const androidPackageId = Constants.expoConfig?.android?.package || 'com.example.productivityapp';
   const storeButtonText = isIOS ? 'Rate us on App Store' : 'Rate us on Google Play';
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -139,7 +139,7 @@ export default function FeedbackScreen() {
           {/* App Information */}
           <Card style={styles.infoCard}>
             <ThemedText type="defaultSemiBold" style={styles.infoTitle}>
-              About Productivity Mobile App
+              About Productivity App
             </ThemedText>
 
             <ThemedView style={styles.appInfo} lightColour='transparent' darkColour='transparent'>
@@ -150,7 +150,7 @@ export default function FeedbackScreen() {
             </ThemedView>
 
             <ThemedText style={styles.appDescription}>
-              Productivity Mobile App is a personal portfolio project by {PROJECT_OWNER_NAME}, designed to help young adults navigate the challenges of independent living.
+              Productivity App is a personal portfolio project by {PROJECT_OWNER_NAME}, designed to help young adults navigate the challenges of independent living.
               We`&apos;re committed to providing helpful tools and resources for managing finances, tasks, and life transitions.
             </ThemedText>
 

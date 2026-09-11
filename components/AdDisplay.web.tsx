@@ -15,7 +15,7 @@ function ensureAdSenseScript() {
   const script = document.createElement('script');
   script.async = true;
   script.crossOrigin = 'anonymous';
-  script.dataset.productivityMobileAppAdsense = 'true';
+  script.dataset.productivityAppAdsense = 'true';
   script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`;
   document.head.appendChild(script);
 }

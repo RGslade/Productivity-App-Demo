@@ -19,7 +19,7 @@ export default function Index() {
           <ThemedText type="eyebrow">A calmer way to prepare</ThemedText>
           <ThemedText type="display">Practical support for leaving home with confidence.</ThemedText>
           <ThemedText style={styles.lede}>
-            Productivity Mobile App brings everyday planning into one thoughtful place: understand your money, organise responsibilities, keep useful notes, and find trustworthy starting points for the next stage of independent life.
+            Productivity App brings everyday planning into one thoughtful place: understand your money, organise responsibilities, keep useful notes, and find trustworthy starting points for the next stage of independent life.
           </ThemedText>
           <View style={styles.actions}>
             <Link href="/(auth)/register" style={styles.primaryLink}>Create your free account</Link>
@@ -30,7 +30,7 @@ export default function Index() {
         <View style={styles.section}>
           <ThemedText type="subtitle">Designed for the decisions that add up</ThemedText>
           <ThemedText style={styles.body}>
-            Independent living is rarely one big decision. It is a collection of small tasks: checking what comes in and goes out, remembering deadlines, finding the right public service, preparing for education or work, and making a plan when things feel unclear. Productivity Mobile App gives those tasks a clear home so progress is easier to see and easier to continue.
+            Independent living is rarely one big decision. It is a collection of small tasks: checking what comes in and goes out, remembering deadlines, finding the right public service, preparing for education or work, and making a plan when things feel unclear. Productivity App gives those tasks a clear home so progress is easier to see and easier to continue.
           </ThemedText>
           <View style={styles.grid}>
             {[

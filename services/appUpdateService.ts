@@ -56,7 +56,7 @@ function getPlatformConfigKeys() {
 
 /** Returns the fallback Google Play URL from the current Android package id. */
 function getAndroidFallbackStoreUrl(): string | null {
-  const androidPackageId = Constants.expoConfig?.android?.package || 'com.example.productivitymobileapp';
+  const androidPackageId = Constants.expoConfig?.android?.package || 'com.example.productivityapp';
 
   return `https://play.google.com/store/apps/details?id=${androidPackageId}`;
 }

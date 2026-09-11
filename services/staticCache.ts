@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_VERSION = 1;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CACHE_PREFIX = '@productivitymobileapp/static-cache/v1/';
+const CACHE_PREFIX = '@productivityapp/static-cache/v1/';
 
 interface CacheEnvelope<T> {
   version: number;

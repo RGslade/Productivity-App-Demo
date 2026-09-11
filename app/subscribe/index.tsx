@@ -45,7 +45,7 @@ type CheckoutNotice = {
   message: string;
 };
 
-const PENDING_WEB_CHECKOUT_KEY = "productivitymobileapp.pendingWebCheckout";
+const PENDING_WEB_CHECKOUT_KEY = "productivityapp.pendingWebCheckout";
 
 /** Resolves the app product kind from a RevenueCat package. */
 function getPackageKind(pkg: PurchasesPackage) {

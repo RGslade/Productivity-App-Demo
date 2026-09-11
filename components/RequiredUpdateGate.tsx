@@ -32,7 +32,7 @@ export default function RequiredUpdateGate({ currentVersion, minimumVersion, sto
       <ThemedView style={styles.content} lightColour="transparent" darkColour="transparent">
         <ThemedText type="title" style={styles.title}>Update required</ThemedText>
         <ThemedText style={styles.body}>
-          You must update Productivity Mobile App to continue using the app.
+          You must update Productivity App to continue using the app.
         </ThemedText>
         <ThemedText style={styles.meta}>Current version: {currentVersion}</ThemedText>
         <ThemedText style={styles.meta}>Minimum required: {minimumVersion || 'Not set'}</ThemedText>

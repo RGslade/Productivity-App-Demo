@@ -6,7 +6,7 @@ import AdDisplay from '@/components/AdDisplay';
 
 export function PublicHeader() {
   return <View style={styles.header}>
-    <Link href="/" style={styles.brand}>Productivity Mobile App</Link>
+    <Link href="/" style={styles.brand}>Productivity App</Link>
     <View style={styles.nav}>
       <Link href="/resources" style={styles.navLink}>Resources</Link>
       <Link href="/about" style={styles.navLink}>About</Link>
@@ -17,7 +17,7 @@ export function PublicHeader() {
 
 export function PublicFooter() {
   return <View style={styles.footer}>
-    <ThemedText style={styles.footerCopy}>Productivity Mobile App is a personal portfolio project.</ThemedText>
+    <ThemedText style={styles.footerCopy}>Productivity App is a personal portfolio project.</ThemedText>
     <View style={styles.footerLinks}>
       <Link href="/legal/privacy" style={styles.footerLink}>Privacy Policy</Link>
       <Link href="/legal/terms" style={styles.footerLink}>Terms of Service</Link>

@@ -1,8 +1,8 @@
-# Productivity Mobile App
+# Productivity App
 
-Productivity Mobile App is an Expo React Native application for organising the practical parts of independent adult life: tasks, checklists, budgeting, notes, education records, documents, news, useful links, subscriptions, ads, and AI-assisted planning.
+Productivity App is an Expo React Native application for organising the practical parts of independent adult life: tasks, checklists, budgeting, notes, education records, documents, news, useful links, subscriptions, ads, and AI-assisted planning.
 
-The project is aimed at young adults and early-career users who need a single mobile workspace for day-to-day organisation while preparing for greater independence. Its central problem is fragmentation: budgeting, moving-out preparation, task tracking, document references, and support links often live in separate tools. This project brings those workflows into one authenticated mobile experience with a Supabase-backed data model and a premium AI assistant called LifeNest.
+The project is aimed at young adults and early-career users who need a single workspace for day-to-day organisation while preparing for greater independence. Its central problem is fragmentation: budgeting, moving-out preparation, task tracking, document references, and support links often live in separate tools. This project brings those workflows into one authenticated experience with a Supabase-backed data model and a premium AI assistant called LifeNest.
 
 This repository is a personal portfolio project. It contains the app architecture and core client-side implementation, but intentionally excludes private environment files, production credentials, service-role keys, release notes, account-specific provider configuration, and any private backend secrets.
 
@@ -11,14 +11,14 @@ This repository is a personal portfolio project. It contains the app architectur
 - **Authenticated personal workspace**: Supabase authentication protects user-specific app data and routes unauthenticated users to the login flow. This allows tasks, notes, budgets, settings, and AI conversations to be associated with the signed-in profile.
 - **Dashboard overview**: The dashboard summarises tasks, checklists, monthly finances, recent notes, latest grades, news headlines, and recent LifeNest conversations. Premium users can customise dashboard card order and visibility.
 - **Tasks and checklists**: Users can create and manage standard tasks, checklist-style items, due dates, reminders, categories, completion progress, and premium preparation workflows such as Moving Out.
-- **Budget tracking**: Income and expenses are stored as transactions, grouped by month, and formatted using the userâ€™s preferred currency symbol.
+- **Budget tracking**: Income and expenses are stored as transactions, grouped by month, and formatted using the userÃ¢â‚¬â„¢s preferred currency symbol.
 - **Notes, documents, and education grades**: The app includes persistent notes, document records with local file export support, and education grade tracking for personal admin and reference.
 - **LifeNest AI assistant**: LifeNest supports independent-living guidance around budgeting, housing, employment readiness, daily routines, and related planning. The client calls a Supabase Edge Function so OpenAI credentials stay server-side in production.
 - **Subscriptions, virtual currency, and ads**: RevenueCat manages subscriptions, remove-ads purchases, and LifeNest token products. Google AdMob provides banner and interstitial ads for non-ad-free users. Local development uses Google AdMob test IDs.
 - **Notifications and app lifecycle handling**: Expo Notifications, Notifee, background task registration, and app-state hooks support reminder behaviour and foreground refresh flows.
 - **Theming and persisted settings**: User preferences such as theme, font, notification settings, budget currency, dashboard layout, and LifeNest appearance are stored through settings services. Some local preferences use AsyncStorage.
 - **Curated links and regional content**: The Links area and regional markdown files provide support/resource references, while the news screen reads Sky News RSS feeds where supported.
-- **Housing and job search helpers**: Housing search can use a local RapidAPI key, a backend function, or fallback sample listings. Job search currently redirects to Indeed UK using the userâ€™s query and location; older Reed API code is retained only as commented reference.
+- **Housing and job search helpers**: Housing search can use a local RapidAPI key, a backend function, or fallback sample listings. Job search currently redirects to Indeed UK using the userÃ¢â‚¬â„¢s query and location; older Reed API code is retained only as commented reference.
 
 ## Technology Stack
 
@@ -62,7 +62,7 @@ This structure keeps feature code reviewable: screens describe interaction flow,
 
 ## Backend and API Design
 
-Supabase is the appâ€™s backend abstraction. `lib/supabase.ts` creates a client with AsyncStorage-backed auth persistence. `services/databaseService.ts` wraps common table operations, auth calls, OAuth code exchange, password reset, RPC calls, and Edge Function invocation.
+Supabase is the appÃ¢â‚¬â„¢s backend abstraction. `lib/supabase.ts` creates a client with AsyncStorage-backed auth persistence. `services/databaseService.ts` wraps common table operations, auth calls, OAuth code exchange, password reset, RPC calls, and Edge Function invocation.
 
 Important integrations:
 
@@ -96,7 +96,7 @@ Setup:
 
 ```bash
 git clone <repository-url>
-cd "Productivity Mobile App"
+cd "Productivity App"
 npm install
 cp .env.example .env.local
 npm start

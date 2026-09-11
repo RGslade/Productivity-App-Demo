@@ -1,4 +1,4 @@
-# AI Prompt Outline For Regional Links In Productivity Mobile App
+# AI Prompt Outline For Regional Links In Productivity App
 
 Use this template to generate per-country links in a consistent format for the app.
 

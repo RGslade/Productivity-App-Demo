@@ -293,7 +293,7 @@ export default function ThemeWrapper() {
           <Stack.Screen name="(auth)/register" options={{ title: 'Register' }} />
           <Stack.Screen name="(auth)/forgot-password" options={{ title: 'Forgot Password' }} />
           <Stack.Screen name="(auth)/change-password" options={{ title: 'Change Password' }} />
-          <Stack.Screen name="(public)/about" options={{ title: 'About Productivity Mobile App' }} />
+          <Stack.Screen name="(public)/about" options={{ title: 'About Productivity App' }} />
           <Stack.Screen name="(public)/resources" options={{ title: 'Independent-Living Resources' }} />
           <Stack.Screen name="(public)/contact" options={{ title: 'Contact' }} />
           <Stack.Screen name="auth/callback" options={{ title: 'Signing In' }} />

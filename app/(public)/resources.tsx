@@ -18,13 +18,13 @@ export default function ResourcesPage() {
           <ThemedText type="subtitle">2. Turn uncertainty into questions</ThemedText>
           <ThemedText style={styles.body}>If you are moving, ask what documents, deposits, references, and recurring bills you will need. If you are looking for work or education, record deadlines and the next action for each application. A question written down is easier to research or take to a trusted person.</ThemedText>
           <ThemedText type="subtitle">3. Use the right source for the right decision</ThemedText>
-          <ThemedText style={styles.body}>For benefits, housing rules, consumer rights, and public services, begin with the relevant government or recognised organisation. Community resources can help you understand an experience, but they should not replace current official guidance. Productivity Mobile App&apos;s Help area groups useful starting points by topic and region.</ThemedText>
+          <ThemedText style={styles.body}>For benefits, housing rules, consumer rights, and public services, begin with the relevant government or recognised organisation. Community resources can help you understand an experience, but they should not replace current official guidance. Productivity App&apos;s Help area groups useful starting points by topic and region.</ThemedText>
           <ThemedText type="subtitle">4. Build a small weekly reset</ThemedText>
           <ThemedText style={styles.body}>Choose a regular time to review upcoming tasks, check your balance, update notes, and decide the next three actions that matter. Small reviews prevent deadlines and bills from becoming emergencies. If you miss a week, simply restart with the next useful action.</ThemedText>
           <ThemedText type="subtitle">A note about LifeNest</ThemedText>
           <ThemedText style={styles.body}>LifeNest can help organise thoughts and suggest planning questions, but its responses can be incomplete or wrong. Do not use it for emergencies or as a substitute for qualified professional advice. When the stakes are high, contact an appropriate official service or professional.</ThemedText>
           <PublicAd />
-          <Link href="/about" style={styles.link}>Learn how Productivity Mobile App is made Ã¢â€ â€™</Link>
+          <Link href="/about" style={styles.link}>Learn how Productivity App is made Ã¢â€ â€™</Link>
         </View>
         <PublicFooter />
       </ScrollView>
@@ -39,7 +39,6 @@ const styles = StyleSheet.create({
   body: { fontSize: 16, lineHeight: 27, opacity: 0.84 },
   link: { color: '#C05F3C', fontWeight: '700', marginTop: 6 },
 });
-
 
 
 

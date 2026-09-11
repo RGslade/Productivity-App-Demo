@@ -583,7 +583,7 @@ export default function SettingsScreen() {
               <ThemedView style={styles.brandMark}>
                 <ThemedText style={styles.brandMarkText}>LTN</ThemedText>
               </ThemedView>
-              <Eyebrow>Productivity Mobile App</Eyebrow>
+              <Eyebrow>Productivity App</Eyebrow>
             </ThemedView>
             <HeroCard style={styles.profileHero}>
               <ThemedView style={[styles.avatar, { backgroundColor: BrandColours.brand }]}>
@@ -592,7 +592,7 @@ export default function SettingsScreen() {
               <Eyebrow tone="hero">Your place</Eyebrow>
               <ThemedText style={[styles.profileHeroTitle, { color: hero.text }]}>{fullName}</ThemedText>
               <ThemedText style={[styles.profileHeroSubtitle, { color: hero.textSecondary }]}>
-                Manage the details that keep your Productivity Mobile App account working across the app.
+                Manage the details that keep your Productivity App account working across the app.
               </ThemedText>
             </HeroCard>
             <ThemedView style={styles.statGrid} darkColour={backgroundColour} lightColour={backgroundColour}>

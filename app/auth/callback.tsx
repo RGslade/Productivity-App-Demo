@@ -36,7 +36,7 @@ export default function AuthCallbackScreen() {
     if (errorDescription) callbackParams.set('error_description', errorDescription);
 
     const query = callbackParams.toString();
-    return query ? `productivitymobileapp://auth/callback?${query}` : '';
+    return query ? `productivityapp://auth/callback?${query}` : '';
   }, [params.code, params.error, params.error_description]);
 
   useEffect(() => {
@@ -111,7 +111,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-
 
 
 

@@ -31,14 +31,14 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
       {
         heading: 'Who these terms apply to',
         body: [
-          `These terms apply when you use Productivity Mobile App, a personal portfolio project maintained by ${PROJECT_OWNER_NAME}. ${contactLine}`,
+          `These terms apply when you use Productivity App, a personal portfolio project maintained by ${PROJECT_OWNER_NAME}. ${contactLine}`,
           'By creating an account, using the app, or buying a subscription or token bundle, you agree to these terms and any additional terms shown at the point of purchase.',
         ],
       },
       {
         heading: 'What the app provides',
         body: [
-          'Productivity Mobile App helps users organise practical independent-living tasks such as budgeting, todo lists, notes, education records, documents, helpful links, news and LifeNest AI chat.',
+          'Productivity App helps users organise practical independent-living tasks such as budgeting, todo lists, notes, education records, documents, helpful links, news and LifeNest AI chat.',
           'The app is a planning and information tool. It does not provide financial advice, legal advice, medical advice, emergency support, counselling, or professional housing or employment advice.',
           'You are responsible for checking information before relying on it, especially where a decision could affect money, safety, health, housing, employment, legal rights or benefits.',
         ],
@@ -102,7 +102,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
       {
         heading: 'Who controls your data',
         body: [
-          `${PROJECT_OWNER_NAME} is responsible for how personal data is handled in Productivity Mobile App. ${contactLine}`,
+          `${PROJECT_OWNER_NAME} is responsible for how personal data is handled in Productivity App. ${contactLine}`,
           'This policy explains what data the app collects, why it is used, who may process it, how long it is kept, and the rights you may have under UK data protection law.',
         ],
       },
@@ -193,7 +193,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
       {
         heading: 'What LifeNest is',
         body: [
-          'LifeNest is an AI-powered planning assistant inside Productivity Mobile App. It can help with organisation, budgeting habits, independent-living planning, checklists and general guidance.',
+          'LifeNest is an AI-powered planning assistant inside Productivity App. It can help with organisation, budgeting habits, independent-living planning, checklists and general guidance.',
           'LifeNest is not a professional adviser and must not be used as a substitute for financial, legal, medical, mental-health, safeguarding, housing, benefits, tax or emergency advice.',
         ],
       },
