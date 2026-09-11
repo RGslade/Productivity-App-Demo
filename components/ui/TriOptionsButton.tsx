@@ -1,5 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, View, Text, ViewStyle, StyleSheet } from 'react-native';
+import { View, Text, ViewStyle, StyleSheet } from 'react-native';
+import { TrackedTouchableOpacity } from './TrackedTouchableOpacity';
 
 interface CustomProps {
   options: string[];
@@ -7,6 +8,7 @@ interface CustomProps {
   onSelect: (option: string) => void;
   selectedOption: string;
   enabled?: boolean | false;
+  analyticsId: string;
 }
 
 /** Renders a compact segmented control with three or more options. */
@@ -16,11 +18,14 @@ export const TriOptionsButton = ({
   onSelect,
   selectedOption,
   enabled,
+  analyticsId,
 }: CustomProps) => {
   return (
     <View style={[containerStyle, styles.optionGroup]}>
       {options.map(option => (
-        <TouchableOpacity
+        <TrackedTouchableOpacity
+          analyticsId={`${analyticsId}_select`}
+          analyticsControlType="selector"
           disabled={!enabled || false}
           key={option}
           style={[styles.option, selectedOption === option && styles.selectedOption]}
@@ -29,7 +34,7 @@ export const TriOptionsButton = ({
           <Text style={[styles.optionText, selectedOption === option && styles.selectedText]}>
             {option}
           </Text>
-        </TouchableOpacity>
+        </TrackedTouchableOpacity>
       ))}
     </View>
   );
@@ -50,7 +55,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectedOption: {
-    backgroundColor: '#6200ee',
+    backgroundColor: '#C7654B',
   },
   optionText: {
     color: '#333',
@@ -60,4 +65,3 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 });
-

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TrackedTouchableOpacity } from './TrackedTouchableOpacity';
 
 import { Colours } from '../../constants/Colours';
 import { GlobalStyles } from '../../constants/Styles';
@@ -15,10 +16,11 @@ interface ColourPickerProps {
   labelStyle?: TextStyle;
   errorStyle?: TextStyle;
   helperText?: string;
+  analyticsId: string;
 }
 
 const DEFAULT_COLORS = [
-  '#3B82F6',
+  '#C7654B',
   '#10B981',
   '#F59E0B',
   '#EF4444',
@@ -39,6 +41,7 @@ export const ColourPicker: React.FC<ColourPickerProps> = ({
   labelStyle,
   errorStyle,
   helperText,
+  analyticsId,
 }) => {
   return (
     <View style={[styles.container, viewStyle]}>
@@ -52,7 +55,9 @@ export const ColourPicker: React.FC<ColourPickerProps> = ({
         {colours.map((colour) => {
           const selected = colour === value;
           return (
-            <TouchableOpacity
+            <TrackedTouchableOpacity
+              analyticsId={`${analyticsId}_swatch`}
+              analyticsControlType="selector"
               key={colour}
               onPress={() => onChange(colour)}
               style={[
@@ -116,4 +121,3 @@ const styles = StyleSheet.create({
 });
 
 export default ColourPicker;
-

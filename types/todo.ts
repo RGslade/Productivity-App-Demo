@@ -37,9 +37,19 @@ export interface ToDoItem {
   last_overdue_reminder_sent?: string;
 }
 
-export const ToDoTypes = [
-  'Numerical', 'Percentage', 'Text/non-quantifiable', 'Yes/No | True/False'
-];
+export const ToDoTypes = ['123', '%', 'Abc', 'âœ“ / âœ•', 'Â£$â‚¬'] as const;
+export type ToDoMeasurementType = typeof ToDoTypes[number];
+
+/** Maps legacy stored measurement labels to the current compact labels. */
+export function normalizeToDoMeasurementType(value: string): ToDoMeasurementType {
+  switch (value) {
+    case 'Numerical': return '123';
+    case 'Percentage': return '%';
+    case 'Text/non-quantifiable': return 'Abc';
+    case 'Yes/No | True/False': return 'âœ“ / âœ•';
+    default: return ToDoTypes.includes(value as ToDoMeasurementType) ? value as ToDoMeasurementType : '123';
+  }
+}
 
 export interface Category {
   id: number; // bigint in DB
@@ -72,7 +82,7 @@ export interface UpdateToDoRequest {
   unit?: string;
   progress?: number;
   premium_category_id?: number | null;
-  checklist_items?: Array<Pick<ChecklistItem, 'id' | 'is_complete'>>;
+  checklist_items?: Array<Pick<ChecklistItem, 'is_complete'> & Partial<Pick<ChecklistItem, 'id' | 'text' | 'position'>>>;
   last_deadline_reminder_sent?: string;
   last_one_week_reminder_sent?: string;
   last_overdue_reminder_sent?: string;

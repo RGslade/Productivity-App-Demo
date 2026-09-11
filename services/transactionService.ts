@@ -2,20 +2,48 @@ import { Transaction, CreateTransactionRequest, TransactionCategory, UpdateTrans
 import { GetCurrentYear } from '@/hooks/dataHandler';
 import databaseService from './databaseService';
 import { DEFAULT_CURRENCY_SYMBOL } from '@/constants/CurrencySymbols';
+import { RecurrenceFrequency } from '@/types/recurringTransaction';
+import { isValidCurrencyAmount } from '@/lib/currencyAmount';
+import { getStaticCached } from '@/services/staticCache';
+
+/** Returns an ISO date string without timezone-sensitive midnight drift. */
+const toDateString = (value: Date | string): string => {
+  if (typeof value === 'string') {
+    return value.split('T')[0];
+  }
+
+  return value.toISOString().slice(0, 10);
+};
+
+/** Advances a due date by the selected recurrence frequency. */
+const addFrequency = (dateString: string, frequency: RecurrenceFrequency): string => {
+  const date = new Date(`${dateString}T12:00:00`);
+  if (frequency === 'weekly') {
+    date.setDate(date.getDate() + 7);
+  } else {
+    const day = date.getDate();
+    date.setDate(1);
+    date.setMonth(date.getMonth() + 1);
+    date.setDate(Math.min(day, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
+  }
+
+  return toDateString(date);
+};
 
 class TransactionService {
   /** Gets all available transaction categories, optionally filtered by transaction type. */
   async getTransactionCategories(type?: TransactionType | string): Promise<TransactionCategory[]> {
-    const { data, error } = await databaseService.getAllGlobal<TransactionCategory>('TransactionCategories', 'name');
-    if (error) {
-      throw new Error(error.message);
-    }
+    const data = await getStaticCached('transaction-categories', async () => {
+      const { data: rows, error } = await databaseService.getAllGlobal<TransactionCategory>('TransactionCategories', 'name');
+      if (error) throw new Error(error.message);
+      return rows || [];
+    });
 
     if (!type) {
-      return data || [];
+      return data;
     }
 
-    return (data || []).filter(category => category.transaction_type === type);
+    return data.filter(category => category.transaction_type === type);
   }
 
   async getTransactionCategory(id:number | undefined): Promise<TransactionCategory>{
@@ -58,13 +86,26 @@ class TransactionService {
 
   /** Creates a transaction record for the current user. */
   async createTransaction(transactionData: CreateTransactionRequest): Promise<Transaction> {
+    if (!isValidCurrencyAmount(String(Math.abs(transactionData.amount)))) {
+      throw new Error('Transaction amount must be positive, use no more than two decimal places, and contain no more than 9 significant digits.');
+    }
+
+    const dueDate = transactionData.due_date ? toDateString(transactionData.due_date) : toDateString(new Date());
+    const recurrenceFrequency = transactionData.is_recurring ? transactionData.recurrence_frequency ?? 'monthly' : null;
     const dbTransaction = {
       title: transactionData.title,
       description: transactionData.description || null,
       category_id: transactionData.category_id || null,
       amount: transactionData.amount,
-      due_date: transactionData.due_date ? transactionData.due_date.split('T')[0] : new Date().toISOString().split('T')[0], // Convert ISO to date
+      due_date: dueDate,
       type: transactionData.type,
+      recurring_transaction_id: transactionData.recurring_transaction_id ?? null,
+      recurring_source_transaction_id: transactionData.recurring_source_transaction_id ?? null,
+      recurrence_due_date: transactionData.recurrence_due_date ?? null,
+      is_recurring: transactionData.is_recurring ?? false,
+      recurrence_frequency: recurrenceFrequency,
+      recurrence_next_due_date: transactionData.recurrence_next_due_date ?? (recurrenceFrequency ? addFrequency(dueDate, recurrenceFrequency) : null),
+      recurrence_end_date: transactionData.recurrence_end_date ?? null,
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await databaseService.insertAndSelect<Transaction>('Transactions', { ...dbTransaction });
@@ -77,10 +118,19 @@ class TransactionService {
 
   /** Updates a transaction record for the current user. */
   async updateTransaction(id: number, updates: UpdateTransactionRequest): Promise<Transaction> {
+    if (!isValidCurrencyAmount(String(Math.abs(updates.amount)))) {
+      throw new Error('Transaction amount must be positive, use no more than two decimal places, and contain no more than 9 significant digits.');
+    }
+
+    const dueDate = updates.due_date ? toDateString(updates.due_date) : undefined;
+    const recurrenceFrequency = updates.is_recurring ? updates.recurrence_frequency ?? 'monthly' : null;
     const updateData = {
       ...updates,
-      category: updates.category_id ?? null,
-      due_date: updates.due_date ? updates.due_date.split('T')[0] : undefined,
+      category_id: updates.category_id ?? null,
+      due_date: dueDate,
+      recurrence_frequency: recurrenceFrequency,
+      recurrence_next_due_date: updates.is_recurring && dueDate ? addFrequency(dueDate, recurrenceFrequency ?? 'monthly') : null,
+      recurrence_end_date: updates.is_recurring ? updates.recurrence_end_date ?? null : null,
     };
     const { data, error } = await databaseService.updateTable<Transaction>('Transactions', updateData, '', 'id', id);
     if (error) {

@@ -1,17 +1,16 @@
 import databaseService from '@/services/databaseService';
 import { Document } from '@/types/document';
 import * as FileSystem from 'expo-file-system';
+import { getStaticCached, invalidateStaticCache } from '@/services/staticCache';
 
 class DocumentService {
   /** Fetches every document from the shared database table. */
   async getDocuments(): Promise<Document[]> {
-    const { data, error } = await databaseService.getAllGlobal<Document>('Documents', 'created_at');
-    if (error) {
-      console.error(error);
-      throw new Error(error.message);
-    }
-
-    return (data || []).map(document => ({ ...document, is_builtin: false }));
+    return getStaticCached('documents', async () => {
+      const { data, error } = await databaseService.getAllGlobal<Document>('Documents', 'created_at');
+      if (error) throw new Error(error.message);
+      return (data || []).map(document => ({ ...document, is_builtin: false }));
+    });
   }
 
   /** Fetches one document by id from the shared database table. */
@@ -105,6 +104,8 @@ class DocumentService {
       throw new Error(error.message);
     }
 
+    await invalidateStaticCache('documents');
+
     return data;
   }
 
@@ -145,4 +146,3 @@ class DocumentService {
 
 export const documentService = new DocumentService();
 export default documentService;
-

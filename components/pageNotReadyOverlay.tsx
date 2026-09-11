@@ -2,17 +2,16 @@ import { KeyboardAvoidingView, Modal, Platform, View, StyleSheet } from 'react-n
 import { ThemedView } from './ThemedView';
 import { Button, Card } from './ui';
 import { ThemedText } from './ThemedText';
-import { router } from 'expo-router';
 
 interface PageNotReadyOverlayProps {
     onClose: () => void;
     animationType?: 'none' | 'slide' | 'fade';
     pageName?: string;
 }
+
 export default function PageNotReadyOverlay({ onClose, animationType = 'none', pageName = 'none' }: PageNotReadyOverlayProps) {
-    const isLoading = false;
     return (
-        <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView enabled={Platform.OS === 'ios'} style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ThemedView style={styles.container}>
                 <Modal visible={true} animationType={animationType} transparent onRequestClose={onClose} >
                     <View style={styles.overlay}>
@@ -21,14 +20,13 @@ export default function PageNotReadyOverlay({ onClose, animationType = 'none', p
                                 <ThemedText type="subtitle" style={styles.title}>
                                     Page not available
                                 </ThemedText>
-                                <Button title="Close" size="small" onPress={onClose} />
+                                <Button analyticsId="components_pagenotreadyoverlay_close" title="Close" size="small" onPress={onClose} />
                             </ThemedView>
                             <ThemedView style={styles.description}>
                                 <ThemedText type="default" style={styles.descriptionText}>
-                                    We&lsquo;re working hard to bring you this feature. In the meantime, check out the button below to see what&lsquo;s happening with the page!
+                                    We&lsquo;re working hard to bring you this feature.
                                 </ThemedText>
                             </ThemedView>
-                            <Button title="Page Status" variant="secondary" size="small" onPress={() => router.navigate(`https://www.ProductivityMobileApp.co.uk/pagesstatus/${pageName}`)} style={styles.statusButton} disabled={isLoading} />
                         </Card>
                     </View>
                 </Modal>
@@ -49,6 +47,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 4,
         marginRight: 4,
+    },
+    statusButtonText: {
+        fontSize: 20,
+    },
+    timestamp: {
+        fontSize: 11,
+        opacity: 0.6,
+        marginTop: 6,
+    },
+    userTimestamp: {
+        color: 'rgba(255, 255, 255, 0.8)',
     },
 
     // ===== History Modal =====

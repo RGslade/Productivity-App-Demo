@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Alert, Platform, Linking, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Platform, Linking } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { ThemedText } from '@/components/ThemedText';
@@ -11,6 +12,8 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import * as settingsService from '@/services/settingsService';
 import { FEEDBACK_CATEGORIES, FeedbackForm } from '@/types/feedback';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { showAlert } from '@/hooks/dataHandler';
+import { PROJECT_OWNER_NAME, PROJECT_SUPPORT_EMAIL, PROJECT_WEBSITE_LABEL } from '@/constants/ProjectInfo';
 
 export default function FeedbackScreen() {
   const [loading, setLoading] = useState(false);
@@ -52,12 +55,12 @@ export default function FeedbackScreen() {
     setLoading(true);
 
     try {
-      settingsService.settingsService.insertFeedback(formData)
+      await settingsService.settingsService.insertFeedback(formData);
 
       // Simulate delay
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      Alert.alert(
+      showAlert(
         'Feedback Sent!',
         'Thank you for your feedback. We appreciate you taking the time to help us improve the app.',
         [
@@ -79,7 +82,7 @@ export default function FeedbackScreen() {
 
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      Alert.alert(
+      showAlert(
         'Error',
         'Failed to send feedback. Please try again later or contact support directly.',
         [{ text: 'OK' }]
@@ -89,8 +92,8 @@ export default function FeedbackScreen() {
     }
   };
 
-  const updateField = <Field extends keyof FeedbackForm>(field: Field, fieldValue: FeedbackForm[Field]) => {
-    setFormData(prev => ({ ...prev, [field]: fieldValue }));
+  const updateField = (field: keyof FeedbackForm, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
 
     // Clear error for this field
     if (errors[field]) {
@@ -105,7 +108,7 @@ export default function FeedbackScreen() {
   const handleStoreRatingPress = async () => {
     const storeUrl = isIOS ? null : `https://play.google.com/store/apps/details?id=${androidPackageId}`;
     if (!storeUrl) {
-      Alert.alert('App Store link pending', 'Add your iOS App Store URL before enabling this button for iOS builds.');
+      showAlert('App Store link pending', 'Add your iOS App Store URL before enabling this button for iOS builds.');
       return;
     }
 
@@ -113,7 +116,7 @@ export default function FeedbackScreen() {
       await Linking.openURL(storeUrl);
     } catch (error) {
       console.error('Error opening store URL:', error);
-      Alert.alert('Unable to open store', 'Please try again later.');
+      showAlert('Unable to open store', 'Please try again later.');
     }
   };
 
@@ -147,11 +150,12 @@ export default function FeedbackScreen() {
             </ThemedView>
 
             <ThemedText style={styles.appDescription}>
-              Productivity Mobile App is designed to help young adults navigate the challenges of independent living.
+              Productivity Mobile App is a personal portfolio project by {PROJECT_OWNER_NAME}, designed to help young adults navigate the challenges of independent living.
               We`&apos;re committed to providing helpful tools and resources for managing finances, tasks, and life transitions.
             </ThemedText>
 
-            <TouchableOpacity style={styles.storeButton} onPress={handleStoreRatingPress} activeOpacity={0.8}>
+            {Platform.OS !== 'web' && (
+            <TouchableOpacity analyticsId="app_helpandfeedback_index_store_button" analyticsControlType="button" style={styles.storeButton} onPress={handleStoreRatingPress} activeOpacity={0.8}>
               <Ionicons
                 name={isIOS ? 'logo-apple-appstore' : 'logo-google-playstore'}
                 size={20}
@@ -160,6 +164,7 @@ export default function FeedbackScreen() {
               />
               <ThemedText style={styles.storeButtonText}>{storeButtonText}</ThemedText>
             </TouchableOpacity>
+            )}
           </Card>
 
           {/* Feedback Form */}
@@ -172,7 +177,7 @@ export default function FeedbackScreen() {
             <ThemedText style={styles.label}>Category *</ThemedText>
             <ThemedView style={styles.categoryGrid} lightColour={backgroundColour} darkColour={backgroundColour}>
               {FEEDBACK_CATEGORIES.map((category) => (
-                <Button key={category} title={category} variant={formData.category === category ? 'primary' : 'secondary'} size="small" onPress={() => updateField('category', category)}
+                <Button analyticsId="app_helpandfeedback_index_update_field" key={category} title={category} variant={formData.category === category ? 'primary' : 'secondary'} size="small" onPress={() => updateField('category', category)}
                   style={styles.categoryButton} />
               ))}
             </ThemedView>
@@ -205,7 +210,7 @@ export default function FeedbackScreen() {
                 <ThemedText style={styles.loadingText}>Sending feedback...</ThemedText>
               </ThemedView>
             ) : (
-              <Button title="Send Feedback" variant="primary" onPress={handleSubmit} style={styles.submitButton} />
+              <Button analyticsId="app_helpandfeedback_index_send_feedback" title="Send Feedback" variant="primary" onPress={handleSubmit} style={styles.submitButton} />
             )}
           </ThemedView>
 
@@ -217,10 +222,10 @@ export default function FeedbackScreen() {
 
             <ThemedView style={styles.contactMethods}>
               <ThemedView style={styles.contactMethod}>
-                <ThemedText style={styles.contactIcon}>📧</ThemedText>
+                <ThemedText style={styles.contactIcon}>ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â§</ThemedText>
                 <ThemedView style={styles.contactDetails}>
                   <ThemedText style={styles.contactMethodTitle}>Email Support</ThemedText>
-                  <ThemedText style={styles.contactMethodText}>contact@example.com</ThemedText>
+                  <ThemedText style={styles.contactMethodText}>{PROJECT_SUPPORT_EMAIL}</ThemedText>
                   <ThemedText style={styles.contactMethodSubtext}>
                     Response within 24-48 hours
                   </ThemedText>
@@ -228,37 +233,27 @@ export default function FeedbackScreen() {
               </ThemedView>
 
               <ThemedView style={styles.contactMethod}>
-                <ThemedText style={styles.contactIcon}>🌐</ThemedText>
+                <ThemedText style={styles.contactIcon}>ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â</ThemedText>
                 <ThemedView style={styles.contactDetails}>
-                  <ThemedText style={styles.contactMethodTitle}>Website</ThemedText>
-                  <ThemedText style={styles.contactMethodText}>www.example.com</ThemedText>
+                  <ThemedText style={styles.contactMethodTitle}>{PROJECT_OWNER_NAME}</ThemedText>
+                  <ThemedText style={styles.contactMethodText}>{PROJECT_WEBSITE_LABEL}</ThemedText>
                   <ThemedText style={styles.contactMethodSubtext}>
-                    Documentation and FAQs
+                    Personal portfolio and contact information
                   </ThemedText>
                 </ThemedView>
               </ThemedView>
 
               <ThemedView style={styles.contactMethod}>
-                <ThemedText style={styles.contactIcon}>🐦</ThemedText>
+                <ThemedText style={styles.contactIcon}>ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â¦</ThemedText>
                 <ThemedView style={styles.contactDetails}>
                   <ThemedText style={styles.contactMethodTitle}>Social Media</ThemedText>
-                  <ThemedText style={styles.contactMethodText}>@DemoPublisher</ThemedText>
+                  <ThemedText style={styles.contactMethodText}>Personal project updates</ThemedText>
                   <ThemedText style={styles.contactMethodSubtext}>
                     Updates and community
                   </ThemedText>
                 </ThemedView>
               </ThemedView>
             </ThemedView>
-          </Card>
-          <Card style={styles.infoCard}>
-            <Button title="Donate" style={styles.donateButton} onPress={async () => {
-              try {
-                await Linking.openURL('https://example.com/donation');
-              } catch (error) {
-                console.error('Error opening donate URL:', error);
-                Alert.alert('Unable to open donate page', 'Please try again later.');
-              }
-            }} />
           </Card>
 
           {/* Privacy Notice */}
@@ -285,10 +280,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '100%' : 1200,
+    alignSelf: 'center',
     flex: 1,
   },
   content: {
     flex: 1,
+    width: Platform.OS === 'web' ? '70%' : undefined,
+    alignSelf: 'center',
     padding: 16,
   },
   header: {
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     minHeight: 44,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#C7654B',
   },
   storeIcon: {
     marginRight: 8,
@@ -354,6 +355,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  formCard: {
+    padding: 20,
+    marginBottom: 16,
   },
   formTitle: {
     fontSize: 18,
@@ -384,6 +389,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
     textAlign: 'right',
+    marginTop: 4,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  checkbox: {
+    minWidth: 40,
+    marginRight: 12,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  contactInfo: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginLeft: 52,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#DC2626',
     marginTop: 4,
   },
   submitContainer: {
@@ -452,8 +480,5 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     lineHeight: 18,
     marginBottom: 8,
-  },
-  donateButton: {
-    backgroundColor: '#10B981',
   },
 });

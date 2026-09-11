@@ -1,4 +1,5 @@
-export const REVENUECAT_ENTITLEMENT_ID = "Productivity Mobile App Pro";
+export const REVENUECAT_ENTITLEMENT_ID = "Demo Pro";
+export const LIFENEST_REVENUECAT_TOKEN_CODE = "TKN";
 
 export const REVENUECAT_PRODUCT_IDS = {
   monthly: "monthly",

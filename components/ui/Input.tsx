@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TextInput, TextInputProps, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Colours } from '../../constants/Colours';
 import { GlobalStyles } from '../../constants/Styles';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { AppFonts } from '@/constants/Fonts';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -17,35 +18,28 @@ interface InputProps extends TextInputProps {
 /** Renders a labeled input with validation support. */
 export const Input: React.FC<InputProps> = ({
   label, error, required = false, labelStyle, errorStyle, style, viewStyle, onFocus, onBlur, direction = 'column', ...props }) => {
-  const [isFocused, setIsFocused] = useState(false);
   const danger = useThemeColour({}, 'danger');
   const placeholderColour = useThemeColour({}, 'inputPlaceholder');
   const textColour = useThemeColour({}, 'text');
   const backgroundColour = useThemeColour({}, 'inputBackground')
 
-  /** Marks the input as focused and forwards focus events. */
+  /** Forwards focus events without changing native input styles during focus. */
   const handleFocus = (e: any) => {
-    setIsFocused(true);
     onFocus?.(e);
   };
 
-  /** Marks the input as blurred and forwards blur events. */
+  /** Forwards blur events without changing native input styles during blur. */
   const handleBlur = (e: any) => {
-    setIsFocused(false);
     onBlur?.(e);
   };
 
-  /** Builds the final input style from focus and validation state. */
+  /** Builds the final input style from validation state without focus-driven native layout changes. */
   const inputStyle = useMemo((): TextStyle => {
     const baseStyle = { ...GlobalStyles.input };
-    if (isFocused) {
-      Object.assign(baseStyle, GlobalStyles.inputFocused);
-    }
-
     if (error) Object.assign(baseStyle, { borderColor: danger });
 
     return baseStyle;
-  }, [danger, error, isFocused]);
+  }, [danger, error]);
 
   return (
     <View style={[direction === 'row' ? styles.formGroupRow : styles.formGroupColumn, styles.formGroup, viewStyle]}>
@@ -55,7 +49,7 @@ export const Input: React.FC<InputProps> = ({
         </Text>
       )}
       <TextInput
-        style={[inputStyle, style, direction === 'column' ? { width: '100%' } : '', { color: textColour }, {backgroundColor: backgroundColour}]} placeholderTextColor={placeholderColour}
+        style={[inputStyle, { fontFamily: AppFonts.regular }, style, direction === 'column' ? { width: '100%' } : '', { color: textColour }, {backgroundColor: backgroundColour}]} placeholderTextColor={placeholderColour}
         onFocus={handleFocus} onBlur={handleBlur} {...props}
       />
 
@@ -88,12 +82,12 @@ const styles = StyleSheet.create({
   required: {
     color: Colours.light.danger,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: AppFonts.bold,
   },
   label: {
     marginBottom: 2,
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: AppFonts.medium,
     // color: Colours.light.text,
   },
 });

@@ -6,7 +6,6 @@ export interface UserSettingsAccount {
   notifications_enabled: boolean;
   created_at: string;
   updated_at: string;
-  session_timeout: number;
 }
 
 export interface UserSettingsDisplay {
@@ -40,6 +39,10 @@ export interface UserSettingsChatBot {
   user_id: string;
   preferred_model: string;
   background_colour: string;
+  grades_context_enabled: boolean;
+  transactions_context_enabled: boolean;
+  todos_context_enabled: boolean;
+  checklists_context_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

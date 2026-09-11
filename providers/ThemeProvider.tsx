@@ -9,7 +9,13 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const deviceScheme = useDeviceColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
 
-  useEffect(() => {settingsService.getTheme().then((savedMode) => {setModeState(savedMode);});}, []);
+  useEffect(() => {
+    settingsService.getTheme()
+      .then((savedMode) => {
+        setModeState(savedMode);
+      })
+      .catch((error) => console.error('ThemeProvider theme load failed', error));
+  }, []);
 
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode);

@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Platform, RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -53,7 +54,7 @@ export default function EducationGradesScreen() {
           </Card>
         ) : (
           sortedGrades.map(grade => (
-            <TouchableOpacity key={grade.id} onPress={() => router.push(`/grades/edit/${grade.id}`)}>
+            <TouchableOpacity analyticsId="app_grades_index_grade_card" analyticsControlType="card" key={grade.id} onPress={() => router.push(`/grades/edit/${grade.id}`)}>
               <Card style={styles.gradeCard}>
                 <ThemedText type="defaultSemiBold">{grade.subject}</ThemedText>
                 <ThemedText style={styles.gradeMeta}>Qualification: {grade.qualification_type}</ThemedText>
@@ -66,7 +67,7 @@ export default function EducationGradesScreen() {
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/grades/add')}>
+      <TouchableOpacity analyticsId="app_grades_index_fab" analyticsControlType="icon" style={styles.fab} onPress={() => router.push('/grades/add')}>
         <ThemedText style={styles.fabText}>+</ThemedText>
       </TouchableOpacity>
     </ThemedView>
@@ -74,8 +75,8 @@ export default function EducationGradesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 96 },
+  container: { flex: 1, width: '100%' },
+  content: { width: Platform.OS === 'web' ? '70%' : '100%', alignSelf: 'center', padding: 16, paddingBottom: 96 },
   title: { fontSize: 24, marginBottom: 4 },
   subtitle: { opacity: 0.7, marginBottom: 16 },
   gradeCard: { padding: 16 },

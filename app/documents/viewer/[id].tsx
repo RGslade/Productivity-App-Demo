@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Alert } from 'react-native';
+import { Platform, ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { documentService } from '@/services/documentService';
 import type { Document } from '@/types/document';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { showAlert } from '@/hooks/dataHandler';
 
 export default function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,14 +21,13 @@ export default function DocumentViewerScreen() {
   const [error, setError] = useState<string>('');
   const backgroundColour = useThemeColour({}, 'background');
 
-  //Load the document by the id from the parameters.
   useEffect(() => {
     const loadDocument = async () => {
       try {
         setLoading(true);
         setError('');
-        const doc = await documentService.getDocument(documentId);
 
+        const doc = await documentService.getDocument(documentId);
         if (!doc || !doc.content) {
           setError('Document with content not found');
           return;
@@ -41,34 +41,30 @@ export default function DocumentViewerScreen() {
         setLoading(false);
       }
     };
-
     if (documentId) {
       loadDocument();
     }
   }, [documentId, id]);
 
-  //Handles the download button press.
   const handleDownload = async () => {
     if (!documentId || !document) return;
 
     setDownloading(true);
     try {
-      //Calls the method to handle backend of the download.
       await documentService.downloadDocument(documentId);
-      Alert.alert('Success', `${document.file_name} downloaded successfully!`);
+      showAlert('Success', `${document.file_name} downloaded successfully!`);
     } catch (error) {
       console.error('Error downloading document:', error);
+      showAlert('Download Failed', 'Could not download this document. Please try again.');
     } finally {
       setDownloading(false);
     }
   };
 
-  //Handles font size adjustment.
   const adjustFontSize = (delta: number) => {
     setFontSize(prev => Math.max(12, Math.min(24, prev + delta)));
   };
 
-  //Handles checking of if PDF.
   const isPDFDocument = (fileName: string): boolean => {
     return fileName.toLowerCase().endsWith('.pdf');
   };
@@ -77,11 +73,11 @@ export default function DocumentViewerScreen() {
     return (
       <ThemedView style={styles.loadingContainer}>
         <LoadingSpinner />
+        {/* <ThemedText style={styles.loadingText}>Loading document...</ThemedText> Already says loading... */}
       </ThemedView>
     );
   }
 
-  //renders the view if error or no document.
   if (error || !document) {
     return (
       <ThemedView style={styles.errorContainer}>
@@ -91,7 +87,7 @@ export default function DocumentViewerScreen() {
         <ThemedText style={styles.errorText}>
           {error || 'Document not found'}
         </ThemedText>
-        <Button title="Go Back" variant="primary" onPress={() => router.back()} style={styles.errorButton} />
+        <Button analyticsId="app_documents_viewer_item_go_back" title="Go Back" variant="primary" onPress={() => router.back()} style={styles.errorButton} />
       </ThemedView>
     );
   }
@@ -123,11 +119,11 @@ export default function DocumentViewerScreen() {
           {/* Controls */}
           <ThemedView style={styles.controls}>
             <ThemedView style={styles.fontControls}>
-              <Button title="A-" variant="secondary" size="small" onPress={() => adjustFontSize(-2)} style={styles.fontButton} />
+              <Button analyticsId="app_documents_viewer_item_a_2" title="A-" variant="secondary" size="small" onPress={() => adjustFontSize(-2)} style={styles.fontButton} />
               <ThemedText style={styles.fontSizeText}>
                 {fontSize}px
               </ThemedText>
-              <Button title="A+" variant="secondary" size="small" onPress={() => adjustFontSize(2)} style={styles.fontButton} />
+              <Button analyticsId="app_documents_viewer_item_a_2" title="A+" variant="secondary" size="small" onPress={() => adjustFontSize(2)} style={styles.fontButton} />
             </ThemedView>
 
             {downloading ? (
@@ -135,7 +131,7 @@ export default function DocumentViewerScreen() {
                 <LoadingSpinner />
               </ThemedView>
             ) : (
-              <Button title="Download" variant="primary" size="small" onPress={handleDownload} style={styles.downloadButton} />
+              <Button analyticsId="app_documents_viewer_item_download" title="Download" variant="primary" size="small" onPress={handleDownload} style={styles.downloadButton} />
             )}
           </ThemedView>
         </Card>
@@ -144,15 +140,20 @@ export default function DocumentViewerScreen() {
         <Card style={styles.contentCard}>
           {isPDFDocument(document.file_name) ? (
             <ThemedView style={styles.pdfContainer}>
-              <ThemedText style={styles.pdfIcon}>📄</ThemedText>
+              <ThemedText style={styles.pdfIcon}>ðŸ“„</ThemedText>
               <ThemedText type="defaultSemiBold" style={styles.pdfTitle}>
                 PDF Document
               </ThemedText>
               <ThemedText style={styles.pdfText}>
                 This is a PDF document. For the best viewing experience, please download the file and open it with a PDF viewer app.
               </ThemedText>
-              <Button title="Download PDF" variant="primary" onPress={handleDownload} style={styles.pdfDownloadButton}
-                disabled={downloading}/>
+              <Button analyticsId="app_documents_viewer_item_download_pdf"
+                title="Download PDF"
+                variant="primary"
+                onPress={handleDownload}
+                style={styles.pdfDownloadButton}
+                disabled={downloading}
+              />
             </ThemedView>
           ) : (<ThemedView style={styles.documentContentContainer}>
             <ThemedText style={[styles.documentContent, { fontSize }]}>
@@ -187,7 +188,7 @@ export default function DocumentViewerScreen() {
 
         {/* Actions */}
         <ThemedView style={styles.actionsContainer} lightColour={backgroundColour} darkColour={backgroundColour}>
-          <Button title="Back to Documents" variant="secondary" onPress={() => router.back()} style={styles.backButton} />
+          <Button analyticsId="app_documents_viewer_item_back_to_help" title="Back to Help" variant="secondary" onPress={() => router.back()} style={styles.backButton} />
         </ThemedView>
       </ThemedView>
     </ScrollView>
@@ -196,6 +197,10 @@ export default function DocumentViewerScreen() {
 
 const styles = StyleSheet.create({
   container: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     flex: 1,
   },
   loadingContainer: {
@@ -203,6 +208,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    opacity: 0.7,
   },
   errorContainer: {
     flex: 1,
@@ -324,6 +334,31 @@ const styles = StyleSheet.create({
   pdfDownloadButton: {
     minWidth: 150,
   },
+  noPreviewContainer: {
+    padding: 40,
+    alignItems: 'center',
+    minHeight: 300,
+    justifyContent: 'center',
+  },
+  noPreviewIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  noPreviewTitle: {
+    fontSize: 18,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  noPreviewText: {
+    fontSize: 14,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  noPreviewDownloadButton: {
+    minWidth: 150,
+  },
   metadataCard: {
     padding: 16,
     marginBottom: 16,
@@ -349,6 +384,17 @@ const styles = StyleSheet.create({
   metadataValue: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  categoryTag: {
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  categoryText: {
+    fontSize: 12,
+    color: '#3730A3',
+    fontWeight: '500',
   },
   actionsContainer: {
     paddingTop: 8,

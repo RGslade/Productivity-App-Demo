@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 
 export type AppStateHandlerCallback = (state: AppStateStatus) => void;
@@ -107,11 +107,23 @@ export const useAppState = (
   listenerId: string = `listener-${Math.random()}`,
   states?: AppStateStatus[]
 ) => {
+  const callbackRef = useRef(callback);
+  const statesRef = useRef(states);
+  const statesKey = states?.join('|') ?? '';
+
+  useLayoutEffect(() => {
+    callbackRef.current = callback;
+    statesRef.current = states;
+  }, [callback, states]);
+
   useEffect(() => {
-    appStateManager.addListener(listenerId, callback, states);
+    const stableCallback = (state: AppStateStatus) => callbackRef.current(state);
+    appStateManager.addListener(listenerId, stableCallback, statesRef.current);
 
     return () => {
       appStateManager.removeListener(listenerId);
     };
-  }, [callback, listenerId, states]);
+  // The callback can change on normal renders; the listener itself should not.
+  // The key still re-registers it when the requested state filter changes.
+  }, [listenerId, statesKey]);
 };

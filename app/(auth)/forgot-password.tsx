@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
+
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { showAlert } from '@/hooks/dataHandler';
 import { authService, getAuthErrorAlert } from '@/services/authService';
 
-//Renders the forgot password screen.
+/** Handles sending and verifying the Supabase password recovery code flow. */
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -16,7 +17,7 @@ export default function ForgotPasswordScreen() {
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [showCodeStep, setShowCodeStep] = useState(false);
 
-  //handles the sending of emails for password recovery.
+  /** Sends a recovery email through Supabase Auth. */
   const handleSendEmail = async () => {
     const normalizedEmail = email.trim();
     if (!normalizedEmail) {
@@ -24,14 +25,12 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
-    //calls the method which handles the backend of the password recovery.
     try {
       setIsSendingEmail(true);
       await authService.resetPassword(normalizedEmail);
       setShowCodeStep(true);
       showAlert('Recovery email sent', 'If this email exists, we sent a reset message with a verification code.');
     } catch (error) {
-      //Fetch user friendly error and display it.
       const { title, message } = getAuthErrorAlert(error, 'resetPassword');
       showAlert(title, message);
     } finally {
@@ -39,17 +38,16 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  //Handle the code verification once its entered by the user. This is only available once the email as been sent (button clicked).
+  /** Verifies the recovery code and moves the user to password reset. */
   const handleVerifyCode = async () => {
     const normalizedEmail = email.trim();
     const normalizedCode = code.trim();
 
-    // if (!normalizedEmail || !normalizedCode) {
-    //   showAlert('Missing Information', 'Please enter both email and verification code.');
-    //   return;
-    // }
+    if (!normalizedEmail || !normalizedCode) {
+      showAlert('Missing Information', 'Please enter both email and verification code.');
+      return;
+    }
 
-    //Verify the code through the backend and redirect to the change password screen.
     try {
       setIsVerifyingCode(true);
       await authService.verifyRecoveryCode(normalizedEmail, normalizedCode);
@@ -62,9 +60,8 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  //Render the view.
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView enabled={Platform.OS === 'ios'} style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <ThemedView style={styles.content}>
           <View style={styles.header}>
@@ -74,19 +71,42 @@ export default function ForgotPasswordScreen() {
             </ThemedText>
           </View>
 
-          <Input label="Email" placeholder="you@example.com" value={email} onChangeText={setEmail}
-            keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email"
-            style={styles.input}/>
+          <Input
+            label="Email"
+            placeholder="you@example.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            style={styles.input}
+          />
 
-          <Button title={isSendingEmail ? 'Sending...' : 'Send recovery email'}
-            onPress={handleSendEmail} loading={isSendingEmail} disabled={isSendingEmail}/>
+          <Button analyticsId="app_forgot_password_handle_send_email"
+            title={isSendingEmail ? 'Sending...' : 'Send recovery email'}
+            onPress={handleSendEmail}
+            loading={isSendingEmail}
+            disabled={isSendingEmail}
+          />
 
           {showCodeStep && (
             <View style={styles.codeStep}>
-              <Input label="Verification code" placeholder="Enter the code from your email" value={code}
-                onChangeText={setCode} autoCapitalize="none" autoCorrect={false} style={styles.input}/>
-              <Button title={isVerifyingCode ? 'Verifying...' : 'Verify code'} onPress={handleVerifyCode}
-                loading={isVerifyingCode} disabled={isVerifyingCode}/>
+              <Input
+                label="Verification code"
+                placeholder="Enter the code from your email"
+                value={code}
+                onChangeText={setCode}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.input}
+              />
+              <Button analyticsId="app_forgot_password_handle_verify_code"
+                title={isVerifyingCode ? 'Verifying...' : 'Verify code'}
+                onPress={handleVerifyCode}
+                loading={isVerifyingCode}
+                disabled={isVerifyingCode}
+              />
             </View>
           )}
         </ThemedView>
@@ -100,6 +120,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     flexGrow: 1,
     justifyContent: 'center',
   },
@@ -129,5 +153,8 @@ const styles = StyleSheet.create({
   codeStep: {
     marginTop: 8,
     gap: 8,
+  },
+  linkButton: {
+    marginTop: 4,
   },
 });

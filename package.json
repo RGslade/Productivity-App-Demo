@@ -2,13 +2,26 @@
   "name": "productivity-mobile-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
-   "scripts": {
+  "scripts": {
     "start": "expo start",
-    "lint": "expo lint",
+    "lint": "expo lint --no-cache",
     "typecheck": "tsc --noEmit",
     "test": "jest --watchAll=false",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ]
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -35,6 +48,7 @@
     "expo-splash-screen": "^55.0.19",
     "expo-status-bar": "~55.0.5",
     "expo-task-manager": "^55.0.15",
+    "expo-web-browser": "~55.0.20",
     "openai": "^6.9.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -54,9 +68,14 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@react-native-community/cli": "^20.1.2",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.2.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~55.0.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~55.0.4",
+    "react-test-renderer": "^19.2.0",
     "tsconfig-paths": "^4.2.0",
     "typescript": "~5.9.2"
   },

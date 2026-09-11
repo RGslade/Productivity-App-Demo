@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import { TestIds } from 'react-native-google-mobile-ads';
 
 import { supabase } from '@/lib/supabase';
-import { BackendFunctions } from '@/constants/backendResources';
 
 type AdMobConfigResponse = {
   bannerAdUnitId?: string;
@@ -51,7 +50,7 @@ function getDevelopmentAdMobConfig(): AdMobConfig | null {
   }
 
   return {
-    bannerAdUnitId: bannerAdUnitId || TestIds.ADAPTIVE_BANNER,
+    bannerAdUnitId: bannerAdUnitId || TestIds.BANNER,
     interstitialAdUnitId: interstitialAdUnitId || TestIds.INTERSTITIAL,
     useTestAds: !bannerAdUnitId && !interstitialAdUnitId,
   };
@@ -83,13 +82,13 @@ class AdMobService {
     return cachedConfigPromise;
   }
 
-  /** Calls the backend ad config endpoint and falls back to test ads during local development. */
+  /** Calls the Supabase edge function and falls back to test ads during local development. */
   private async fetchConfig(): Promise<AdMobConfig | null> {
     const platform = getAdMobPlatform();
     if (platform === 'unknown') return null;
 
     try {
-      const { data, error } = await supabase.functions.invoke(BackendFunctions.adConfig, {
+      const { data, error } = await supabase.functions.invoke('admob-config', {
         body: {
           platform,
           useTestAds: __DEV__,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -68,9 +68,9 @@ export default function AddNoteScreen() {
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
-        <Button title={isTemporary ? 'Done' : isCreating ? 'Saving...' : 'Save'} onPress={handleSave} disabled={isCreating} size="small" />
-        <Button title="Cancel" variant="secondary" onPress={handleCancel} size="small" />
-        <Button title={temporaryLabel} variant={temporaryVariant} onPress={() => setIsTemporary(prev => !prev)} size="small" />
+        <Button analyticsId="app_notes_add_handle_save" title={isTemporary ? 'Done' : isCreating ? 'Saving...' : 'Save'} onPress={handleSave} disabled={isCreating} size="small" />
+        <Button analyticsId="app_notes_add_cancel" title="Cancel" variant="secondary" onPress={handleCancel} size="small" />
+        <Button analyticsId="app_notes_add_set_is_temporary" title={temporaryLabel} variant={temporaryVariant} onPress={() => setIsTemporary(prev => !prev)} size="small" />
       </View>
 
       {isTemporary && (
@@ -104,6 +104,8 @@ export default function AddNoteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: Platform.OS === 'web' ? '70%' : '100%',
+    alignSelf: 'center',
     padding: 16,
   },
   header: {

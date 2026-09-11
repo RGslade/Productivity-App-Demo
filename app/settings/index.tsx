@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ScrollView, StyleSheet, Alert, TouchableOpacity, Linking, Platform, Image } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Linking, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -8,27 +9,76 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Switch } from '@/components/ui/Switch';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Chip, Eyebrow, HeroCard, StatTile, useHeroSurface } from '@/components/ui/Surfaces';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings, useUpdateAccountSettings, useUpdateChatBotSettings, useUpdateDisplaySettings, useUpdateToDoSettings, useUpdateTransactionSettings } from '@/hooks/useSettings';
 import { userService } from '@/services/userService';
 import { UpdateProfileRequest, UserInfo } from '@/types/user';
 import { SettingsSection, UserSettingsAccount, UserSettingsChatBot, UserSettingsDisplay, UserSettingsToDo, UserSettingsTransactions } from '@/types/settings';
 import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/AppDatePicker';
 import { AVAILABLE_FONTS } from '@/constants/Fonts';
 import { DEFAULT_CURRENCY_SYMBOL, MAJOR_CURRENCY_SYMBOLS } from '@/constants/CurrencySymbols';
 import { EMPLOYMENT_STATUSES } from '@/constants/employment';
 import { lifeNestService } from '@/services/lifeNestService';
 import { ColourPicker } from '@/components/ui/ColourPicker';
 import { useThemeColour } from '@/hooks/useThemeColour';
-import { validateAuthUser } from '@/hooks/dataHandler';
+import { showAlert, validateAuthUser } from '@/hooks/dataHandler';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
-import { deriveSubscriptionProfile, findPackageByKind } from '@/services/subscriptionService';
+import { deriveSubscriptionProfile, findPackageByKind, getRevenueCatProductKind } from '@/services/subscriptionService';
+import { addCrashBreadcrumb, logError } from '@/services/crashLogger';
+import { openRevenueCatHostedPurchases } from '@/services/revenueCatWebPurchaseLinkService';
 import { BrandColours } from '@/constants/Colours';
+import { PROJECT_OWNER_NAME, PROJECT_SUPPORT_EMAIL, PROJECT_WEBSITE, PROJECT_WEBSITE_LABEL } from '@/constants/ProjectInfo';
+import { REQUIRED_LEGAL_DOCUMENTS } from '@/constants/LegalDocuments';
+
+/** Returns customer-facing purchase outage guidance without exposing provider details. */
+function getPurchaseUnavailableMessage() {
+  return `Purchases are temporarily unavailable. Please try again later. If this keeps happening, contact support at ${PROJECT_SUPPORT_EMAIL}.`;
+}
+
+/** Formats RevenueCat subscription status for account settings. */
+function getSubscriptionStatusLabel(status?: string | null) {
+  if (status === 'active') return 'Active';
+  if (status === 'cancelled') return 'Active until the current paid period ends';
+  return 'No active subscription';
+}
+
+/** Formats the current premium plan without exposing provider product ids to users. */
+function getSubscriptionPlanLabel(productId?: string | null) {
+  if (!productId) return 'Premium';
+  const kind = getRevenueCatProductKind(productId);
+  if (kind === 'yearly') return 'Annual Premium';
+  if (kind === 'monthly') return 'Monthly Premium';
+  return 'Premium';
+}
+
+/** Formats ISO purchase dates for the account summary. */
+function formatPurchaseDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+const SETTINGS_BOOKMARKS = [
+  { key: 'profile', label: 'Profile' },
+  { key: 'appearance', label: 'Appearance' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'budget', label: 'Budget' },
+  { key: 'lifenest', label: 'LifeNest' },
+  { key: 'notifications', label: 'Notifications' },
+  { key: 'purchases', label: 'Purchases' },
+  { key: 'more', label: 'More' },
+] as const;
 
 export default function SettingsScreen() {
-  const { userInfo, logout } = useAuth();
-  const { restorePurchases, purchasePackage, customerInfo, offerings, isConfigured, configurationError, isPremium } = useSubscriptions();
+  const { user, userInfo, logout } = useAuth();
+  const { restorePurchases, purchasePackage, customerInfo, offerings, isConfigured, isPremium, lifeNestTokenBalance } = useSubscriptions();
   const { accountSettings, displaySettings, todoSettings, transactionSettings, chatBotSettings } = useSettings();
   const updateAccountSettings = useUpdateAccountSettings();
   const updateDisplaySettings = useUpdateDisplaySettings();
@@ -37,9 +87,12 @@ export default function SettingsScreen() {
   const updateChatBotSettings = useUpdateChatBotSettings();
   const [loading, setLoading] = useState(false);
   const purchaseInFlightRef = useRef(false);
+  const settingsScrollRef = useRef<ScrollView>(null);
+  const sectionOffsetsRef = useRef<Record<string, number>>({});
   const [activeSection, setActiveSection] = useState<SettingsSection>(null);
   const [updateMessage, setUpdateMessage] = useState<{ message: string; isSuccess: boolean } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showWebPurchaseChoice, setShowWebPurchaseChoice] = useState(false);
   const themes = ['light', 'dark', 'system'] as const;
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -48,6 +101,17 @@ export default function SettingsScreen() {
   const textColour = useThemeColour({}, 'text');
   const inputBackgroundColour = useThemeColour({}, 'inputBackground');
   const inputBorderColour = useThemeColour({}, 'inputBorder');
+  const hero = useHeroSurface();
+
+  const registerBookmarkSection = useCallback((key: string) => (event: { nativeEvent: { layout: { y: number } } }) => {
+    sectionOffsetsRef.current[key] = event.nativeEvent.layout.y;
+  }, []);
+
+  const scrollToBookmark = useCallback((key: string) => {
+    const offset = sectionOffsetsRef.current[key];
+    if (offset === undefined) return;
+    settingsScrollRef.current?.scrollTo({ y: Math.max(0, offset - 72), animated: true });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -57,7 +121,7 @@ export default function SettingsScreen() {
         if (mounted) setAvailableModels(models);
       })
       .catch(err => {
-        console.error('Operation failed');
+        logError('SettingsScreen.loadModels', err, { route: '/settings' });
         if (mounted) setAvailableModels([]);
       })
       .finally(() => {
@@ -106,10 +170,21 @@ export default function SettingsScreen() {
   const [chatBotData, setChatBotData] = useState<Partial<UserSettingsChatBot>>({
     preferred_model: chatBotSettings?.preferred_model,
     background_colour: chatBotSettings?.background_colour,
+    grades_context_enabled: chatBotSettings?.grades_context_enabled ?? true,
+    transactions_context_enabled: chatBotSettings?.transactions_context_enabled ?? true,
+    todos_context_enabled: chatBotSettings?.todos_context_enabled ?? true,
+    checklists_context_enabled: chatBotSettings?.checklists_context_enabled ?? true,
   });
   const removeAdsPackage = findPackageByKind(offerings, 'remove_ads');
   const subscriptionProfile = deriveSubscriptionProfile(customerInfo);
   const isAdFree = subscriptionProfile.isAdFree;
+  const subscriptionStartedAtLabel = formatPurchaseDate(subscriptionProfile.subscriptionStartedAt);
+  const hasKnownActivePurchases = subscriptionProfile.isPremium || subscriptionProfile.hasRemoveAds || lifeNestTokenBalance > 0;
+  const fullName = [profileData.first_name, profileData.surname].filter(Boolean).join(' ') || userInfo?.email_address || 'You';
+  const initials = [profileData.first_name, profileData.surname].filter((part): part is string => Boolean(part)).map(part => part.charAt(0).toUpperCase()).join('').slice(0, 2) || 'YN';
+  const profileFields = [profileData.first_name,profileData.surname,profileData.primary_phone_number,profileData.birth_date,profileData.address_line_1,profileData.city,profileData.postcode,profileData.living_situation,profileData.job_status,];
+  const completedProfileFields = profileFields.filter(value => Boolean(value)).length;
+  const profileCompletion = Math.round((completedProfileFields / profileFields.length) * 100);
 
   const handleDatePick = (_: any, selected?: Date) => {
     setShowDatePicker(false);
@@ -157,7 +232,14 @@ export default function SettingsScreen() {
 
     if (transactionSettings) setTransactionData({ preferred_currency: transactionSettings.preferred_currency || DEFAULT_CURRENCY_SYMBOL });
 
-    if (chatBotSettings) setChatBotData({ preferred_model: chatBotSettings.preferred_model, background_colour: chatBotSettings.background_colour });
+    if (chatBotSettings) setChatBotData({
+      preferred_model: chatBotSettings.preferred_model,
+      background_colour: chatBotSettings.background_colour,
+      grades_context_enabled: chatBotSettings.grades_context_enabled ?? true,
+      transactions_context_enabled: chatBotSettings.transactions_context_enabled ?? true,
+      todos_context_enabled: chatBotSettings.todos_context_enabled ?? true,
+      checklists_context_enabled: chatBotSettings.checklists_context_enabled ?? true,
+    });
   }, [userInfo, accountSettings, displaySettings, todoSettings, transactionSettings, chatBotSettings, handleSetProfileData]);
 
   const showMessage = (message: string, isSuccess: boolean = true) => {
@@ -174,7 +256,7 @@ export default function SettingsScreen() {
       await handleSetProfileData(updatedUser);
       showMessage('Profile updated.');
     } catch (error) {
-      console.error('Profile update failed', error);
+      logError('SettingsScreen.handleProfileUpdate', error, { userId: userInfo.id });
       showMessage('Failed to update profile. Please try again.', false);
     } finally {
       setLoading(false);
@@ -190,7 +272,7 @@ export default function SettingsScreen() {
       await updateAccountSettings.mutateAsync(accountData);
       showMessage('Account updated.');
     } catch (error) {
-      console.error('Account settings update failed', error);
+      logError('SettingsScreen.handleAccountSettingsUpdate', error, { accountData });
       showMessage('Failed to update account settings. Please try again.', false);
     } finally {
       setLoading(false);
@@ -206,7 +288,7 @@ export default function SettingsScreen() {
       await updateDisplaySettings.mutateAsync(displayData);
       showMessage('Appearance updated.');
     } catch (error) {
-      console.error('Display settings update failed', error);
+      logError('SettingsScreen.handleDisplaySettingsUpdate', error, { displayData });
       showMessage('Failed to update display settings. Please try again.', false);
     } finally {
       setLoading(false);
@@ -222,7 +304,7 @@ export default function SettingsScreen() {
       await updateToDoSettings.mutateAsync(todoData);
       showMessage('Tasks updated.');
     } catch (error) {
-      console.error('Task settings update failed', error);
+      logError('SettingsScreen.handleToDoSettingsUpdate', error, { todoData });
       showMessage('Failed to update ToDo settings.', false);
     } finally {
       setLoading(false);
@@ -238,7 +320,7 @@ export default function SettingsScreen() {
       await updateTransactionSettings.mutateAsync(transactionData);
       showMessage('Budget updated.');
     } catch (error) {
-      console.error('Transaction settings update failed', error);
+      logError('SettingsScreen.handleTransactionSettingsUpdate', error, { transactionData });
       showMessage('Failed to update transaction settings.', false);
     } finally {
       setLoading(false);
@@ -254,7 +336,7 @@ export default function SettingsScreen() {
       await updateChatBotSettings.mutateAsync(chatBotData);
       showMessage('LifeNest updated.');
     } catch (error) {
-      console.error('LifeNest settings update failed', error);
+      logError('SettingsScreen.handleChatBotSettingsUpdate', error, { chatBotData });
       showMessage('Failed to update ChatBot settings.', false);
     } finally {
       setLoading(false);
@@ -263,7 +345,7 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = async () => {
-    Alert.alert('Delete Account', 'Are you sure you want to delete your account? You cannot get it back after deletion.',
+    showAlert('Delete Account', 'Are you sure you want to delete your account? You cannot get it back after deletion.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -273,10 +355,10 @@ export default function SettingsScreen() {
             try {
               setLoading(true);
               await userService.deleteAccount();
-              Alert.alert('Account Deleted', 'Your account has been permanently deleted.', [{ text: 'OK', onPress: () => logout() }]);
+              showAlert('Account Deleted', 'Your account has been permanently deleted.', [{ text: 'OK', onPress: () => logout() }]);
             } catch (error) {
-              console.error('Account deletion failed', error);
-              Alert.alert('Delete Account Failed', 'We could not delete your account. Please try again.');
+              logError('SettingsScreen.handleDeleteAccount', error, { userId: userInfo?.id });
+              showAlert('Delete Account Failed', 'We could not delete your account. Please try again.');
             } finally {
               setLoading(false);
             }
@@ -287,7 +369,7 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?',
+    showAlert('Logout', 'Are you sure you want to log out?',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Logout', onPress: () => { logout(); } }
@@ -301,11 +383,9 @@ export default function SettingsScreen() {
     }
 
     if (!isConfigured) {
-      Alert.alert(
+      showAlert(
         'Purchases unavailable',
-        configurationError
-          ? `Purchases are not configured for this session. ${configurationError}`
-          : 'Purchases are currently unavailable. Please try again shortly.'
+        getPurchaseUnavailableMessage()
       );
       return;
     }
@@ -313,17 +393,26 @@ export default function SettingsScreen() {
     try {
       purchaseInFlightRef.current = true;
       setLoading(true);
-      const restoredCustomerInfo = await restorePurchases();
-      const profile = deriveSubscriptionProfile(restoredCustomerInfo);
-      Alert.alert(
+      addCrashBreadcrumb('settings_restore_start', undefined, '/settings');
+      const info = await restorePurchases();
+      const profile = deriveSubscriptionProfile(info);
+      addCrashBreadcrumb('settings_restore_result', {
+        isPremium: profile.isPremium,
+        isAdFree: profile.isAdFree,
+        hasRemoveAds: profile.hasRemoveAds,
+      }, '/settings');
+      showAlert(
         profile.isAdFree ? 'Purchases restored' : 'Nothing to restore',
         profile.isAdFree
-          ? 'Your subscriptions or non-consumable purchases were restored successfully on this account.'
-          : 'No active subscription or non-consumable purchase was found for this store account. LifeNest token balances are synced to your signed-in account and do not need store restore.'
+          ? 'Your subscriptions or one-time purchases were restored successfully on this account.'
+          : 'No active subscription or one-time purchase was found for this store account. LifeNest token balances are synced to your signed-in account and do not need store restore.'
       );
     } catch (error) {
-      console.error('Purchase restore failed', error);
-      Alert.alert('Restore failed', 'We could not restore purchases. Please try again.');
+      addCrashBreadcrumb('settings_restore_error', {
+        message: error instanceof Error ? error.message : String(error),
+      }, '/settings');
+      logError('SettingsScreen.handleRestorePurchases', error);
+      showAlert('Restore failed', 'We could not restore purchases. Please try again.');
     } finally {
       purchaseInFlightRef.current = false;
       setLoading(false);
@@ -336,65 +425,112 @@ export default function SettingsScreen() {
     }
 
     if (!isConfigured) {
-      Alert.alert(
+      showAlert(
         'Purchases unavailable',
-        configurationError
-          ? `Purchases are not configured for this session. ${configurationError}`
-          : 'Purchases are currently unavailable. Please try again shortly.'
+        getPurchaseUnavailableMessage()
       );
       return;
     }
 
     if (!removeAdsPackage) {
-      Alert.alert('Remove Ads unavailable', 'The Remove Ads product is not currently available.');
+      showAlert('Remove Ads unavailable', 'The Remove Ads product is not currently available.');
       return;
     }
 
     try {
       purchaseInFlightRef.current = true;
       setLoading(true);
-      const purchasedCustomerInfo = await purchasePackage(removeAdsPackage);
-      const profile = deriveSubscriptionProfile(purchasedCustomerInfo);
-      Alert.alert(
+      addCrashBreadcrumb('settings_remove_ads_start', undefined, '/settings');
+      const info = await purchasePackage(removeAdsPackage);
+      const profile = deriveSubscriptionProfile(info);
+      addCrashBreadcrumb('settings_remove_ads_result', {
+        isPremium: profile.isPremium,
+        isAdFree: profile.isAdFree,
+        hasRemoveAds: profile.hasRemoveAds,
+      }, '/settings');
+      showAlert(
         profile.isAdFree ? 'Purchase successful' : 'Purchase complete',
         profile.isAdFree
           ? 'Remove Ads is now active on this account.'
-          : 'Purchase completed but has not activated yet. Please restore purchases if needed.'
+          : `Your purchase completed, but we could not confirm access yet. Please try restoring purchases. If this keeps happening, contact support at ${PROJECT_SUPPORT_EMAIL}.`
       );
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
       if (message.includes('cancel')) return;
-      console.error('Operation failed');
-      Alert.alert('Purchase failed', 'We could not complete the Remove Ads purchase. Please try again.');
+      addCrashBreadcrumb('settings_remove_ads_error', { message }, '/settings');
+      logError('SettingsScreen.handleRemoveAdsPurchase', error, { productId: removeAdsPackage?.product.identifier });
+      showAlert('Purchase failed', 'We could not complete the Remove Ads purchase. Please try again.');
     } finally {
       purchaseInFlightRef.current = false;
       setLoading(false);
     }
   };
 
+  /** Opens hosted RevenueCat Remove Ads checkout on web and native checkout elsewhere. */
+  const handleRemoveAdsEntry = async () => {
+    const didOpenHostedPurchases = await openRevenueCatHostedPurchases({
+      appUserId: user?.id,
+      email: userInfo?.email_address || user?.email,
+      screen: 'remove_ads',
+      source: 'settings_remove_ads',
+    });
+
+    if (!didOpenHostedPurchases) {
+      await handleRemoveAdsPurchase();
+    }
+  };
+
+  /** Opens the web purchase choice popup while preserving the native purchase route. */
+  const handleGetMore = () => {
+    if (Platform.OS !== 'web') {
+      router.push('/subscribe');
+      return;
+    }
+
+    setShowWebPurchaseChoice(true);
+  };
+
+  /** Opens the selected RevenueCat hosted purchase screen from the web-only choice popup. */
+  const handleWebPurchaseChoice = async (screen: 'tokens' | 'subscriptions') => {
+    setShowWebPurchaseChoice(false);
+    await openRevenueCatHostedPurchases({
+      appUserId: user?.id,
+      email: userInfo?.email_address || user?.email,
+      screen,
+      source: `settings_get_more_${screen}`,
+    });
+  };
+
   const handleUnsubscribeInfo = async () => {
     const profile = deriveSubscriptionProfile(customerInfo);
     const managementUrl = profile.managementUrl;
-    const platformLabel = Platform.OS === 'ios' ? 'App Store subscriptions' : 'Google Play subscriptions';
+    const platformLabel =
+      Platform.OS === 'ios'
+        ? 'App Store subscriptions'
+        : Platform.OS === 'android'
+          ? 'Google Play subscriptions'
+          : 'your RevenueCat Billing subscription email';
     const instructions =
       Platform.OS === 'ios'
-        ? 'Open iPhone Settings, tap your Apple ID, then Subscriptions. Select Productivity Mobile App and cancel renewal.'
-        : 'Open Google Play Store, tap profile, Payments & subscriptions, then Subscriptions. Select Productivity Mobile App and cancel renewal.';
+        ? 'Open iPhone Settings, tap your Apple ID, then Subscriptions. Select the demo product and cancel renewal.'
+        : Platform.OS === 'android'
+          ? 'Open Google Play Store, tap profile, Payments & subscriptions, then Subscriptions. Select the demo product and cancel renewal.'
+          : 'On web, use the subscription email you received after checkout to update or cancel your subscription.';
 
     if (managementUrl) {
-      Alert.alert(
+      showAlert(
         'Manage subscription',
         `${instructions}\n\nYou can also open ${platformLabel} directly now.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Open store subscriptions',
+            text: Platform.OS === 'web' ? 'Open subscription page' : 'Open store subscriptions',
             onPress: async () => {
               try {
                 await Linking.openURL(managementUrl);
               } catch (error) {
-                console.error('Opening subscription management URL failed', error);
-                Alert.alert('Unable to open', 'Could not open the subscription page automatically.');
+                logError('SettingsScreen.openSubscriptionManagement', error, { managementUrl });
+                showAlert('Unable to open', 'Could not open the subscription page automatically.');
               }
             },
           },
@@ -403,7 +539,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    Alert.alert('Manage subscription', instructions);
+    showAlert('Manage subscription', instructions);
   };
 
   const formatDOBForDisplay = (isoDate?: string) => {
@@ -412,45 +548,19 @@ export default function SettingsScreen() {
     return `${day}/${month}/${year}`;
   };
 
-  const formatDOBForDB = (displayDate: string) => {
-    const [day, month, year] = displayDate.split('/');
-    if (!day || !month || !year) return '';
-    return `${year}-${month}-${day}`;
-  };
-
-  const handleDOBChange = (text: string) => {
-    // Keep only date digits so the input always formats the same way.
-    let digits = text.replace(/\D/g, '');
-
-    // DDMMYYYY is the only valid shape for this input.
-    if (digits.length > 8) digits = digits.slice(0, 8);
-
-    let formatted = digits;
-
-    if (digits.length > 4) {
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    } else if (digits.length > 2) {
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    }
-
-    setProfileData(prev => ({ ...prev, birth_date: formatDOBForDB(formatted) }));
-    setDobDisplay(formatted);
-  };
-
   const [dobDisplay, setDobDisplay] = useState(formatDOBForDisplay(profileData.birth_date));
 
   useEffect(() => {
     if (profileData.birth_date) setDobDisplay(formatDOBForDisplay(profileData.birth_date));
   }, [profileData.birth_date]);
 
-  /** Opens the Demo Publisher website from the producer card. */
-  const handleOpenPublisherSite = async () => {
-    const url = 'https://example.com';
+  /** Opens the personal portfolio website from the project card. */
+  const handleOpenProjectWebsite = async () => {
     try {
-      await Linking.openURL(url);
+      await Linking.openURL(PROJECT_WEBSITE);
     } catch (error) {
-      console.error('Opening publisher site failed', error);
-      Alert.alert('Unable to open', 'Could not open Demo Publisher right now.');
+      logError('SettingsScreen.handleOpenProjectWebsite', error, { url: PROJECT_WEBSITE });
+      showAlert('Unable to open', `Could not open ${PROJECT_OWNER_NAME} right now.`);
     }
   };
 
@@ -465,30 +575,34 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container]}>
-      <ScrollView style={[styles.scrollContainer]}>
+    <ThemedView style={[styles.container, { backgroundColor: backgroundColour }]}>
+      <ScrollView ref={settingsScrollRef} style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         <ThemedView style={styles.content} darkColour={backgroundColour} lightColour={backgroundColour}>
           <ThemedView style={styles.header} darkColour={backgroundColour} lightColour={backgroundColour}>
-            <ThemedText type="title" style={styles.title}>
-              Settings & Feedback
-            </ThemedText>
-            <ThemedText type="subtitle" style={styles.subtitle}>
-              Account, app, and purchases
-            </ThemedText>
-            <Button title="Grades" onPress={() => router.replace('/grades')} style={styles.gradesButton} />
+            <ThemedView style={styles.brandRow} darkColour={backgroundColour} lightColour={backgroundColour}>
+              <ThemedView style={styles.brandMark}>
+                <ThemedText style={styles.brandMarkText}>LTN</ThemedText>
+              </ThemedView>
+              <Eyebrow>Productivity Mobile App</Eyebrow>
+            </ThemedView>
+            <HeroCard style={styles.profileHero}>
+              <ThemedView style={[styles.avatar, { backgroundColor: BrandColours.brand }]}>
+                <ThemedText style={styles.avatarText}>{initials}</ThemedText>
+              </ThemedView>
+              <Eyebrow tone="hero">Your place</Eyebrow>
+              <ThemedText style={[styles.profileHeroTitle, { color: hero.text }]}>{fullName}</ThemedText>
+              <ThemedText style={[styles.profileHeroSubtitle, { color: hero.textSecondary }]}>
+                Manage the details that keep your Productivity Mobile App account working across the app.
+              </ThemedText>
+            </HeroCard>
+            <ThemedView style={styles.statGrid} darkColour={backgroundColour} lightColour={backgroundColour}>
+              <StatTile label="Profile" value={`${profileCompletion}%`} meta={`${completedProfileFields} of ${profileFields.length} set`} />
+              <StatTile label="LifeNest" value={`${lifeNestTokenBalance}`} meta="tokens available" />
+            </ThemedView>
           </ThemedView>
 
-          {/* Update Message */}
-          {updateMessage && (
-            <ThemedView style={[styles.messageCard, { backgroundColor: updateMessage.isSuccess ? '#D1FAE5' : '#FEE2E2' }]}>
-              <ThemedText style={[styles.messageText, { color: updateMessage.isSuccess ? '#065F46' : '#991B1B' }]}>
-                {updateMessage.message}
-              </ThemedText>
-            </ThemedView>
-          )}
-
           {/* Profile Settings */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('profile')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Profile
             </ThemedText>
@@ -515,8 +629,8 @@ export default function SettingsScreen() {
             </ThemedView>
 
             <ThemedView style={styles.formField}>
-              <Input label="Date of Birth" value={dobDisplay} onChangeText={handleDOBChange} placeholder="DD/MM/YYYY" keyboardType="number-pad" maxLength={10} onFocus={() => setShowDatePicker(true)} />
-              {showDatePicker && (<DateTimePicker value={profileData.birth_date ? new Date(profileData.birth_date) : new Date()} mode="date" display="default" maximumDate={new Date()} onChange={handleDatePick} />)}
+              <Button analyticsId="app_settings_set_date_of_birth" title={dobDisplay ? `Date of Birth: ${dobDisplay}` : 'Set Date of Birth'} variant="secondary" fullWidth onPress={() => setShowDatePicker(true)} />
+              {showDatePicker && (<DateTimePicker value={profileData.birth_date ? new Date(profileData.birth_date) : new Date()} mode="date" display="default" maximumDate={new Date()} onValueChange={handleDatePick} />)}
             </ThemedView>
 
             <ThemedView style={styles.formField}>
@@ -561,12 +675,12 @@ export default function SettingsScreen() {
                 ))}
               </Picker>
             </ThemedView>
-            <Button title={loading && activeSection === 'profile' ? 'Updating...' : 'Save Profile'} onPress={handleProfileUpdate} disabled={loading} style={styles.updateButton} />
-            <Button title="Change Password" variant="secondary" onPress={() => router.push('/(auth)/change-password')} style={styles.updateButton} />
+            <Button analyticsId="app_settings_index_handle_profile_update" title={loading && activeSection === 'profile' ? 'Updating...' : 'Save Profile'} onPress={handleProfileUpdate} disabled={loading} style={styles.updateButton} />
+            <Button analyticsId="app_settings_index_change_password" title="Change Password" variant="secondary" onPress={() => router.push('/(auth)/change-password')} style={styles.updateButton} />
           </Card>
 
           {/* Appearance Settings */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('appearance')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Appearance
             </ThemedText>
@@ -575,7 +689,7 @@ export default function SettingsScreen() {
               <ThemedText type='defaultSemiBold'>Theme</ThemedText>
               <ThemedView style={styles.themeOptions}>
                 {themes.map((theme) => (
-                  <TouchableOpacity key={theme} style={[styles.themeOption, displayData.theme === theme && styles.themeOptionActive, { display: 'flex' }]}
+                  <TouchableOpacity analyticsId="app_settings_index_theme_option" analyticsControlType="filter" key={theme} style={[styles.themeOption, displayData.theme === theme && styles.themeOptionActive, { display: 'flex' }]}
                     onPress={() => setDisplayData(prev => ({ ...prev, theme }))}>
                     <ThemedText style={[styles.themeOptionText, displayData.theme === theme && styles.themeOptionTextActive]}>
                       {theme.charAt(0).toUpperCase() + theme.slice(1)}
@@ -599,11 +713,11 @@ export default function SettingsScreen() {
               </Picker>
             </ThemedView>
 
-            <Button title={loading && activeSection === 'appearance' ? 'Updating...' : 'Save Appearance'} onPress={handleDisplaySettingsUpdate} disabled={loading} style={styles.updateButton} />
+            <Button analyticsId="app_settings_index_handle_display_settings_update" title={loading && activeSection === 'appearance' ? 'Updating...' : 'Save Appearance'} onPress={handleDisplaySettingsUpdate} disabled={loading} style={styles.updateButton} />
           </Card>
 
           {/* ToDo Settings */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('tasks')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Tasks
             </ThemedText>
@@ -623,12 +737,12 @@ export default function SettingsScreen() {
                 keyboardType="numeric" />
             </ThemedView>
 
-            <Button
+            <Button analyticsId="app_settings_index_handle_to_do_settings_update"
               title={loading && activeSection === 'dashboard' ? 'Updating...' : 'Save Tasks'} onPress={handleToDoSettingsUpdate} disabled={loading} style={styles.updateButton} />
           </Card>
 
           {/* Transaction Settings */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('budget')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Budget
             </ThemedText>
@@ -650,19 +764,19 @@ export default function SettingsScreen() {
               </ThemedText>
             </ThemedView>
 
-            <Button
+            <Button analyticsId="app_settings_index_handle_transaction_settings_update"
               title={loading && activeSection === 'transactions' ? 'Updating...' : 'Save Budget'} onPress={handleTransactionSettingsUpdate} disabled={loading} style={styles.updateButton} />
           </Card>
 
           {/*Chatbot Settings */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('lifenest')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type='subtitle' style={styles.sectionTitle}>
               LifeNest
             </ThemedText>
             {/* NEW: Color Picker */}
             <ThemedView style={styles.settingItem}>
               {chatBotData.background_colour && (
-                <ColourPicker label="Chatbot Background Colour" value={chatBotData.background_colour} onChange={(colour) =>
+                <ColourPicker analyticsId="settings_chatbot_background_colour" label="Chatbot Background Colour" value={chatBotData.background_colour} onChange={(colour) =>
                   setChatBotData(prev => ({ ...prev, background_colour: colour }))
                 } helperText="Used for chat background." />
               )}
@@ -680,79 +794,205 @@ export default function SettingsScreen() {
                 ))}
               </Picker>
             </ThemedView>
-            <Button title={loading && activeSection === 'chatBot' ? 'Updating...' : 'Save LifeNest'} onPress={handleChatBotSettingsUpdate} disabled={loading} style={styles.updateButton} />
+            <ThemedText style={styles.helper}>
+              LifeNest reads enabled information live when answering each message. You can change these permissions at any time.
+            </ThemedText>
+            <Switch
+              label="Grades"
+              description="Allow LifeNest to use your saved grades, including for CV-ready education sections."
+              value={chatBotData.grades_context_enabled ?? true}
+              onValueChange={(value) => setChatBotData((previous) => ({ ...previous, grades_context_enabled: value }))}
+            />
+            <Switch
+              label="Transactions"
+              description="Allow LifeNest to use your saved income and spending records."
+              value={chatBotData.transactions_context_enabled ?? true}
+              onValueChange={(value) => setChatBotData((previous) => ({ ...previous, transactions_context_enabled: value }))}
+            />
+            <Switch
+              label="Tasks"
+              description="Allow LifeNest to use your ordinary task records."
+              value={chatBotData.todos_context_enabled ?? true}
+              onValueChange={(value) => setChatBotData((previous) => ({ ...previous, todos_context_enabled: value }))}
+            />
+            <Switch
+              label="Checklists"
+              description="Allow LifeNest to use checklist records and checklist items."
+              value={chatBotData.checklists_context_enabled ?? true}
+              onValueChange={(value) => setChatBotData((previous) => ({ ...previous, checklists_context_enabled: value }))}
+            />
+            <Button analyticsId="app_settings_index_handle_chat_bot_settings_update" title={loading && activeSection === 'chatBot' ? 'Updating...' : 'Save LifeNest'} onPress={handleChatBotSettingsUpdate} disabled={loading} style={styles.updateButton} />
           </Card>
 
           {/* Account Settings */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('notifications')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Notifications
             </ThemedText>
             <ThemedView style={[styles.settingItem]}>
-              <Switch description='Receive app notifications' descriptionStyle={styles.settingDescription} label='Enable Notifications' value={accountData.notifications_enabled === true} onValueChange={(value) => setAccountData(prev => ({ ...prev, notifications_enabled: value }))} />
+              <Switch
+                description={Platform.OS === 'web' ? 'Background notifications are available in the iOS and Android apps.' : 'Receive app notifications'}
+                descriptionStyle={styles.settingDescription}
+                label='Enable Notifications'
+                value={Platform.OS === 'web' ? false : accountData.notifications_enabled === true}
+                disabled={Platform.OS === 'web'}
+                onValueChange={(value) => setAccountData(prev => ({ ...prev, notifications_enabled: value }))}
+              />
             </ThemedView>
-            <Button title={loading && activeSection === 'account' ? 'Updating...' : 'Save Notifications'} onPress={handleAccountSettingsUpdate} disabled={loading} style={styles.updateButton} />
+            <Button analyticsId="app_settings_index_handle_account_settings_update" title={loading && activeSection === 'account' ? 'Updating...' : 'Save Notifications'} onPress={handleAccountSettingsUpdate} disabled={loading || Platform.OS === 'web'} style={styles.updateButton} />
           </Card>
 
           {/* Purchasables */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('purchases')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Purchases
+              Subscriptions and purchases
             </ThemedText>
-            <Button
-              title="Get Tokens"
-              variant="secondary"
-              onPress={() => router.push('/subscribe')}
-              style={styles.actionButton}
-            />
-            {!isAdFree && (
+            <ThemedView style={styles.purchaseSummary}>
+              <ThemedView style={styles.purchaseStatusRow}>
+                <ThemedText style={styles.purchaseStatusLabel}>Subscription</ThemedText>
+                <ThemedText style={styles.purchaseStatusValue}>
+                  {subscriptionProfile.isPremium
+                    ? `${getSubscriptionPlanLabel(subscriptionProfile.entitlementProductId)} - ${getSubscriptionStatusLabel(subscriptionProfile.status)}`
+                    : getSubscriptionStatusLabel(subscriptionProfile.status)}
+                </ThemedText>
+              </ThemedView>
+              {subscriptionStartedAtLabel && (
+                <ThemedView style={styles.purchaseStatusRow}>
+                  <ThemedText style={styles.purchaseStatusLabel}>Started</ThemedText>
+                  <ThemedText style={styles.purchaseStatusValue}>{subscriptionStartedAtLabel}</ThemedText>
+                </ThemedView>
+              )}
+              <ThemedView style={styles.purchaseStatusRow}>
+                <ThemedText style={styles.purchaseStatusLabel}>Ad-free access</ThemedText>
+                <ThemedText style={styles.purchaseStatusValue}>{isAdFree ? 'Active' : 'Not active'}</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.purchaseStatusRow}>
+                <ThemedText style={styles.purchaseStatusLabel}>LifeNest tokens</ThemedText>
+                <ThemedText style={styles.purchaseStatusValue}>{`${lifeNestTokenBalance} token${lifeNestTokenBalance === 1 ? '' : 's'} available`}</ThemedText>
+              </ThemedView>
               <Button
+                analyticsId="app_settings_index_get_more"
+                title="Get More"
+                variant="secondary"
+                onPress={handleGetMore}
+                style={styles.actionButton}
+              />
+              <ThemedView style={styles.activePurchaseList}>
+                <ThemedText type="defaultSemiBold">Active purchases</ThemedText>
+                {hasKnownActivePurchases ? (
+                  <>
+                    {subscriptionProfile.isPremium && (
+                      <ThemedText style={styles.purchaseNote}>{getSubscriptionPlanLabel(subscriptionProfile.entitlementProductId)}</ThemedText>
+                    )}
+                    {subscriptionProfile.hasRemoveAds && (
+                      <ThemedText style={styles.purchaseNote}>Remove Ads</ThemedText>
+                    )}
+                    {lifeNestTokenBalance > 0 && (
+                      <ThemedText style={styles.purchaseNote}>{`${lifeNestTokenBalance} LifeNest tokens remaining`}</ThemedText>
+                    )}
+                  </>
+                ) : (
+                  <ThemedText style={styles.purchaseNote}>No active subscription or one-time purchase found on this account.</ThemedText>
+                )}
+              </ThemedView>
+            </ThemedView>
+            {!isAdFree && (
+              <Button analyticsId="app_settings_index_handle_remove_ads_purchase"
                 title={loading ? 'Processing...' : 'Remove Ads'}
                 variant="secondary"
-                onPress={handleRemoveAdsPurchase}
+                onPress={handleRemoveAdsEntry}
                 disabled={loading}
                 style={styles.actionButton}
               />
             )}
-            <Button
-              title={loading ? 'Restoring...' : 'Restore Purchase'}
+            <Button analyticsId="app_settings_index_handle_restore_purchases"
+              title={loading ? 'Restoring...' : 'Restore purchases'}
               variant="secondary"
               onPress={handleRestorePurchases}
               disabled={loading}
               style={styles.actionButton}
             />
+            {(isPremium || subscriptionProfile.status === 'cancelled' || subscriptionProfile.managementUrl) && (
+              <Button analyticsId="app_settings_index_manage_subscription"
+                title="Manage subscription"
+                variant="secondary"
+                onPress={handleUnsubscribeInfo}
+                disabled={loading}
+                style={styles.actionButton}
+              />
+            )}
           </Card>
 
           {/* Action Buttons */}
-          <Card style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
+          <Card onLayout={registerBookmarkSection('more')} style={[styles.sectionCard, { backgroundColor: cardBackgroundColour }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               More
             </ThemedText>
 
-            <Button title="Contact & Feedback" variant="secondary" onPress={() => router.replace('/helpAndFeedback')}
+            <Button analyticsId="app_settings_index_contact_feedback" title="Contact & Feedback" variant="secondary" onPress={() => router.replace('/helpAndFeedback')}
               style={styles.actionButton} />
-            {isPremium && (
+            {REQUIRED_LEGAL_DOCUMENTS.map((document) => (
               <Button
-                title="Unsubscribe"
+                key={document.key}
+                analyticsId={`app_settings_index_open_${document.key}`}
+                title={document.shortTitle}
                 variant="secondary"
-                onPress={handleUnsubscribeInfo}
+                onPress={() => router.push(document.route as any)}
                 style={styles.actionButton}
               />
-            )}
+            ))}
 
-            <Button title={loading ? 'Deleting Account...' : 'Delete My Account'} variant="danger" onPress={handleDeleteAccount} disabled={loading} style={styles.actionButton} />
-            <Button title="Logout" variant="warning" onPress={handleLogout} style={styles.actionButton} />
+            <Button analyticsId="app_settings_index_handle_delete_account" title={loading ? 'Deleting Account...' : 'Delete My Account'} variant="danger" onPress={handleDeleteAccount} disabled={loading} style={styles.actionButton} />
+            <Button analyticsId="app_settings_index_logout" title="Logout" variant="warning" onPress={handleLogout} style={styles.actionButton} />
           </Card>
 
-          <Card style={styles.producerCard} onPress={handleOpenPublisherSite}>
-            <Image source={require('../../assets/images/icon.png')} style={styles.producerLogo} resizeMode="contain" />
+          <Card analyticsId="settings_open_project_website" style={styles.producerCard} onPress={handleOpenProjectWebsite}>
+            {/* <Image source={require('../../assets/images/icon.png')} style={styles.producerLogo} resizeMode="contain" /> */}
             <ThemedText type="subtitle" style={styles.producerTitle}>
-              Produced by Demo Publisher
+              Personal portfolio project
             </ThemedText>
-            <ThemedText style={styles.producerLink}>example.com</ThemedText>
+            <ThemedText style={styles.producerLink}>{PROJECT_WEBSITE_LABEL}</ThemedText>
+            <ThemedText style={styles.producerEmail}>{PROJECT_SUPPORT_EMAIL}</ThemedText>
           </Card>
         </ThemedView>
       </ScrollView>
+      <ThemedView style={[styles.bookmarkBar, { backgroundColor: cardBackgroundColour, borderColor: inputBorderColour }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookmarkRow}>
+          {SETTINGS_BOOKMARKS.map(bookmark => (
+            <TouchableOpacity key={bookmark.key} analyticsId="app_settings_bookmark" analyticsControlType="filter" onPress={() => scrollToBookmark(bookmark.key)}>
+              <Chip label={bookmark.label} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </ThemedView>
+      {updateMessage && (
+        <ThemedView style={[styles.fixedMessageCard, { backgroundColor: updateMessage.isSuccess ? '#D1FAE5' : '#FEE2E2' }]}>
+          <ThemedText style={[styles.messageText, { color: updateMessage.isSuccess ? '#065F46' : '#991B1B' }]}>{updateMessage.message}</ThemedText>
+        </ThemedView>
+      )}
+      {Platform.OS === 'web' && (
+        <Modal transparent visible={showWebPurchaseChoice} animationType="fade"
+          onRequestClose={() => setShowWebPurchaseChoice(false)}>
+          <ThemedView style={styles.purchaseChoiceBackdrop}>
+            <ThemedView style={[styles.purchaseChoiceCard, { backgroundColor: cardBackgroundColour, borderColor: inputBorderColour }]}>
+              <ThemedText type="subtitle" style={styles.purchaseChoiceTitle}>Get more LifeNest tokens</ThemedText>
+              <ThemedText style={styles.purchaseChoiceMessage}>
+                Choose a one-time token bundle, or subscribe for 500 tokens every month while your subscription is active.
+              </ThemedText>
+              <Button analyticsId="app_settings_index_get_more_tokens" title="Buy a token bundle"
+                variant="secondary" onPress={() => void handleWebPurchaseChoice('tokens')}
+                style={styles.actionButton}               />
+              <Button
+                analyticsId="app_settings_index_get_more_subscription" title="Subscribe - 500 tokens monthly"
+                variant="primary" onPress={() => void handleWebPurchaseChoice('subscriptions')}
+                style={styles.actionButton} />
+              <Button analyticsId="app_settings_index_get_more_cancel"
+                title="Cancel" variant="secondary" onPress={() => setShowWebPurchaseChoice(false)}
+                style={styles.purchaseChoiceCancel} />
+            </ThemedView>
+          </ThemedView>
+        </Modal>
+      )}
     </ThemedView>
   );
 }
@@ -760,9 +1000,13 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
   },
   scrollContainer: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 50,
   },
   loadingContainer: {
     flex: 1,
@@ -771,10 +1015,64 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: 20,
+        width: Platform.OS === 'web' ? '70%' : '100%',
+    alignSelf: 'center',
   },
   header: {
-    marginBottom: 24,
+    gap: 13,
+    marginBottom: 22,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BrandColours.brandDark,
+  },
+  brandMarkText: {
+    color: BrandColours.ice,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  profileHero: {
+    gap: 10,
+  },
+  avatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  avatarText: {
+    color: BrandColours.ice,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  profileHeroTitle: {
+    fontSize: 34,
+    lineHeight: 37,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  profileHeroSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 420,
+  },
+  statGrid: {
+    flexDirection: 'row',
+    gap: 13,
   },
   title: {
     fontSize: 28,
@@ -785,18 +1083,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
   },
-  gradesButton: {
-    marginTop: 10,
-  },
-  messageCard: {
+  fixedMessageCard: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 78,
     padding: 12,
-    marginBottom: 16,
     borderRadius: 8,
+    zIndex: 20,
+    ...Platform.select({ web: { boxShadow: '0 2px 10px rgba(30, 28, 25, 0.16)' } as object, default: { elevation: 6 } }),
   },
   messageText: {
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  bookmarkBar: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    right: 12,
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 18,
+    zIndex: 20,
+  },
+  bookmarkRow: {
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
   },
   sectionCard: {
     padding: 12,
@@ -815,6 +1130,9 @@ const styles = StyleSheet.create({
     color: '#272626ff',
     opacity: 1,
   },
+  disabledInput: {
+    opacity: 0.6,
+  },
   helper: {
     fontSize: 12,
     opacity: 0.7,
@@ -828,6 +1146,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderWidth: 1,
     borderRadius: 14,
+  },
+  settingMain: {
+    marginRight: 16,
   },
   settingDescription: {
     fontSize: 14,
@@ -856,23 +1177,89 @@ const styles = StyleSheet.create({
   themeOptionTextActive: {
     color: 'white',
   },
+  numberInput: {
+    maxWidth: 100,
+    alignSelf: 'flex-end',
+  },
+  fontInput: {
+    maxWidth: 200,
+  },
   updateButton: {
     marginTop: 8,
   },
   actionButton: {
     marginBottom: 12,
   },
+  purchaseChoiceBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(20, 18, 15, 0.46)',
+  },
+  purchaseChoiceCard: {
+    width: '100%',
+    maxWidth: 460,
+    padding: 20,
+    borderWidth: 1,
+    borderRadius: 18,
+    ...Platform.select({ web: { boxShadow: '0 8px 30px rgba(30, 28, 25, 0.22)' } as object, default: { elevation: 8 } }),
+  },
+  purchaseChoiceTitle: {
+    marginBottom: 8,
+  },
+  purchaseChoiceMessage: {
+    lineHeight: 21,
+    marginBottom: 16,
+  },
+  purchaseChoiceCancel: {
+    marginTop: 2,
+  },
+  purchaseSummary: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  purchaseStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  purchaseStatusLabel: {
+    flex: 1,
+    fontSize: 14,
+    opacity: 0.72,
+  },
+  purchaseStatusValue: {
+    flex: 1.4,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  activePurchaseList: {
+    gap: 4,
+    marginTop: 4,
+  },
+  purchaseNote: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  purchaseFinePrint: {
+    fontSize: 12,
+    lineHeight: 18,
+    opacity: 0.68,
+    marginTop: 4,
+  },
   producerCard: {
     alignItems: 'center',
     gap: 8,
-    padding: 18,
+    padding: 1,
     backgroundColor: BrandColours.graphite,
     borderColor: BrandColours.electricBlue,
   },
-  producerLogo: {
-    width: '100%',
-    height: 140,
-  },
+  // producerLogo: {
+  //   width: '100%',
+  //   height: 140,
+  // },
   producerTitle: {
     color: BrandColours.ice,
     textAlign: 'center',
@@ -881,5 +1268,26 @@ const styles = StyleSheet.create({
     color: BrandColours.cyan,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  producerEmail: {
+    color: BrandColours.ice,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  dangerCard: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+  },
+  dangerTitle: {
+    color: '#DC2626',
+  },
+  dangerWarning: {
+    fontSize: 14,
+    color: '#991B1B',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  dangerButton: {
+    backgroundColor: '#DC2626',
   },
 });

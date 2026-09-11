@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useState } from 'react';
-import { Alert, Keyboard, Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
@@ -7,6 +8,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button, Card, Input, LoadingSpinner } from '@/components/ui';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { showAlert } from '@/hooks/dataHandler';
 import { useLocationHandler } from '@/hooks/locationHandler';
 import { useHousing } from '@/hooks/useHousing';
 import { HousingListing, HousingSearchParams } from '@/types/housing';
@@ -22,20 +24,20 @@ const HousingCard: React.FC<HousingCardProps> = ({ listing }) => {
 
   const handleOpen = async () => {
     if (!listing.detailsUrl) {
-      Alert.alert('Unavailable', 'No listing URL is available for this property.');
+      showAlert('Unavailable', 'No listing URL is available for this property.');
       return;
     }
 
     const canOpen = await Linking.canOpenURL(listing.detailsUrl);
     if (!canOpen) {
-      Alert.alert('Unable to Open', 'Could not open this property listing.');
+      showAlert('Unable to Open', 'Could not open this property listing.');
       return;
     }
     await Linking.openURL(listing.detailsUrl);
   };
 
   return (
-    <TouchableOpacity onPress={handleOpen} activeOpacity={0.7}>
+    <TouchableOpacity analyticsId="app_housingsearch_index_job_card" analyticsControlType="card" onPress={handleOpen} activeOpacity={0.7}>
       <Card style={styles.jobCard}>
         <View style={styles.jobHeader}>
           <View style={{ flex: 1 }}>
@@ -121,7 +123,7 @@ export default function HousingScreen() {
 
   const handlePostcodeLookup = async () => {
     if (!postcodeInput.trim()) {
-      Alert.alert('Error', 'Please enter a postcode');
+      showAlert('Error', 'Please enter a postcode');
       return;
     }
     const result = await getLocationFromPostcode(postcodeInput);
@@ -132,7 +134,7 @@ export default function HousingScreen() {
 
   const handleSearch = async () => {
     if (!location) {
-      Alert.alert('Error', 'Please provide a location (GPS or postcode)');
+      showAlert('Error', 'Please provide a location (GPS or postcode)');
       return;
     }
 
@@ -158,7 +160,7 @@ export default function HousingScreen() {
       searchListings(params);
     } catch (err) {
       console.error('Housing search error:', err);
-      Alert.alert('Search Error', 'Failed to search for properties');
+      showAlert('Search Error', 'Failed to search for properties');
     }
   };
 
@@ -208,7 +210,7 @@ export default function HousingScreen() {
             <ThemedText style={styles.locationLabel}>Search Location</ThemedText>
             <ThemedText style={styles.locationValue}>{location.postcode || location.address}</ThemedText>
           </View>
-          <TouchableOpacity onPress={clearLocation}>
+          <TouchableOpacity analyticsId="app_housingsearch_index_container" analyticsControlType="button" onPress={clearLocation}>
             <Ionicons name="close-circle-outline" size={24} color={textColor} />
           </TouchableOpacity>
         </View>
@@ -233,7 +235,7 @@ export default function HousingScreen() {
 
         <Card style={styles.locationCard}>
           <ThemedText style={styles.cardLabel}>Where do you want to live?</ThemedText>
-          <Button
+          <Button analyticsId="app_housingsearch_index_handle_request_location"
             variant="secondary"
             size="medium"
             onPress={handleRequestLocation}
@@ -261,7 +263,7 @@ export default function HousingScreen() {
               editable={!isLoadingLocation && !isSearching}
               style={{ marginRight: 8, flex: 1 }}
             />
-            <Button
+            <Button analyticsId="app_housingsearch_index_search"
               variant="secondary"
               size="medium"
               title="Search"
@@ -340,7 +342,7 @@ export default function HousingScreen() {
 
         {renderErrorMessage()}
 
-        <Button
+        <Button analyticsId="app_housingsearch_index_search_properties"
           variant="primary"
           size="medium"
           title="Search Properties"
@@ -377,7 +379,7 @@ export default function HousingScreen() {
                   <ThemedText type="subtitle">
                     {listings.length} {listings.length === 1 ? 'property' : 'properties'} found
                   </ThemedText>
-                  <TouchableOpacity onPress={handleClearSearch}>
+                  <TouchableOpacity analyticsId="app_housingsearch_index_clear_button" analyticsControlType="button" onPress={handleClearSearch}>
                     <ThemedText style={styles.clearButton}>Clear</ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -410,6 +412,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     padding: 16,
   },
   header: {

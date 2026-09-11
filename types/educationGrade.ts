@@ -51,3 +51,25 @@ export interface UpdateEducationGradeRequest {
   date_achieved?: string | null;
   notes?: string | null;
 }
+
+/** Converts picker or text-input values to the trimmed form used by validation and persistence. */
+export function normalizeEducationGradeValue(value: unknown): string {
+  return value == null ? '' : String(value).trim();
+}
+
+/** Returns the user-facing validation message when a grade form is incomplete. */
+export function getEducationGradeValidationError(
+  subject: unknown,
+  qualificationType: unknown,
+  grade: unknown,
+): string | null {
+  if (
+    !normalizeEducationGradeValue(subject) ||
+    !normalizeEducationGradeValue(qualificationType) ||
+    !normalizeEducationGradeValue(grade)
+  ) {
+    return 'Subject, qualification type and grade are required.';
+  }
+
+  return null;
+}

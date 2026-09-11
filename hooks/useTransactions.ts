@@ -26,7 +26,8 @@ export const useTransactions = () => {
   const categoriesQuery = useQuery({
     queryKey: transactionKeys.categories(),
     queryFn: () => transactionService.getTransactionCategories(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000,
   });
 
   const updateMutation = useMutation({
@@ -35,6 +36,8 @@ export const useTransactions = () => {
       onSuccess: (updatedTransaction, { id }) => {
         // Update the specific transaction in cache
         queryClient.setQueryData(transactionKeys.detail(id), updatedTransaction);
+        queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: [...transactionKeys.all, 'monthly'] });
       },
       onError: (error) => {
         console.error('Failed to update transaction:', error);
@@ -46,6 +49,7 @@ export const useTransactions = () => {
         transactionService.createTransaction(data),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: [...transactionKeys.all, 'monthly'] });
       },
       onError: (error) => {
         console.error('Failed to create transaction:', error);
@@ -56,6 +60,7 @@ export const useTransactions = () => {
       mutationFn: (id: number) => transactionService.deleteTransaction(id),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: [...transactionKeys.all, 'monthly'] });
       },
       onError: (error) => {
         console.error('Failed to delete transaction:', error);
@@ -65,6 +70,8 @@ export const useTransactions = () => {
   return {
     transactions: query.data || [],
     categories: categoriesQuery.data || [],
+    categoriesLoading: categoriesQuery.isLoading,
+    categoriesError: categoriesQuery.error,
     loading: query.isLoading,
     error: query.error,
     fetchTransactions: query.refetch,
@@ -83,7 +90,8 @@ export const useTransactionCategories = (type?: string) => {
   return useQuery({
     queryKey: [...transactionKeys.categories(), type || 'all'],
     queryFn: () => transactionService.getTransactionCategories(type),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000,
   });
 };
 
@@ -101,8 +109,9 @@ export const useTransactionsByMonth = (month: number, year: number) => {
   const createMutation = useMutation({
     mutationFn: (data: CreateTransactionRequest) => 
       transactionService.createTransaction(data),
-    onSuccess: () => {
+      onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...transactionKeys.all, 'monthly'] });
     },
     onError: (error) => {
       console.error('Failed to create transaction:', error);
@@ -113,6 +122,7 @@ export const useTransactionsByMonth = (month: number, year: number) => {
     mutationFn: (id: number) => transactionService.deleteTransaction(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...transactionKeys.all, 'monthly'] });
     },
     onError: (error) => {
       console.error('Failed to delete transaction:', error);
@@ -192,12 +202,13 @@ export const useDeleteTransaction = () => {
   
   return useMutation({
     mutationFn: (id: number) => transactionService.deleteTransaction(id),
-    onSuccess: (_, id) => {
+      onSuccess: (_, id) => {
       // Remove the specific transaction from cache
       queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
       
       // Invalidate transactions list to refetch
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...transactionKeys.all, 'monthly'] });
       
       // Invalidate all monthly data (we don't know which month it was from)
       queryClient.invalidateQueries({ 

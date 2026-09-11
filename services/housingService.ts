@@ -64,17 +64,17 @@ function getLocalDevelopmentHousingConfig() {
 /**
  * Maps a Zoopla/RapidAPI payload item into the app's housing listing shape.
  */
-function mapRemoteHousingListing(remoteListing: any, index: number): HousingListing {
+function mapRemoteHousingListing(item: any, index: number): HousingListing {
   return {
-    id: String(remoteListing?.listing_id || remoteListing?.id || `remote-${index}`),
-    title: remoteListing?.title || remoteListing?.displayable_address || 'Property listing',
-    address: remoteListing?.displayable_address || remoteListing?.address || 'UK',
-    priceLabel: remoteListing?.price || remoteListing?.price_label || 'Price on request',
-    bedrooms: remoteListing?.num_bedrooms,
-    bathrooms: remoteListing?.num_bathrooms,
-    propertyType: remoteListing?.property_type,
-    imageUrl: remoteListing?.image_url || remoteListing?.image_urls?.[0],
-    detailsUrl: remoteListing?.details_url || remoteListing?.listing_url,
+    id: String(item?.listing_id || item?.id || `remote-${index}`),
+    title: item?.title || item?.displayable_address || 'Property listing',
+    address: item?.displayable_address || item?.address || 'UK',
+    priceLabel: item?.price || item?.price_label || 'Price on request',
+    bedrooms: item?.num_bedrooms,
+    bathrooms: item?.num_bathrooms,
+    propertyType: item?.property_type,
+    imageUrl: item?.image_url || item?.image_urls?.[0],
+    detailsUrl: item?.details_url || item?.listing_url,
     source: 'zoopla',
   };
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Switch as RNSwitch, StyleSheet, ViewStyle, TextStyle, SwitchProps, StyleProp} from 'react-native';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { AppFonts } from '@/constants/Fonts';
 
 interface CustomSwitchProps extends SwitchProps {
   label?: string;
@@ -61,12 +62,13 @@ const styles = StyleSheet.create({
   },
   
   label: {
+    fontFamily: AppFonts.medium,
     fontSize: 16,
-    fontWeight: '500',
     marginBottom: 2,
   },
   
   description: {
+    fontFamily: AppFonts.regular,
     fontSize: 14,
     lineHeight: 18,
   },

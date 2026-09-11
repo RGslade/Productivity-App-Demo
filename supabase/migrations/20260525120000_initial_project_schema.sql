@@ -249,7 +249,7 @@ create table if not exists public."UserSettings_Transactions" (
   user_id bigint not null unique references public."Users_Info"(id) on delete cascade,
   created_at timestamptz not null default now(),
   updated_at timestamptz,
-  preferred_currency text not null default '£' check (preferred_currency in ('£', '$', '€', '¥', '₹', '₦', '₩', '₺', '₽', '฿', '₫', '₱', '₪', 'R$', 'C$', 'A$', 'NZ$', 'S$', 'HK$', 'Mex$', 'Fr', 'kr', 'zł', 'Kč', 'R', 'د.إ', 'ر.س', 'ر.ق'))
+  preferred_currency text not null default 'Â£' check (preferred_currency in ('Â£', '$', 'â‚¬', 'Â¥', 'â‚¹', 'â‚¦', 'â‚©', 'â‚º', 'â‚½', 'à¸¿', 'â‚«', 'â‚±', 'â‚ª', 'R$', 'C$', 'A$', 'NZ$', 'S$', 'HK$', 'Mex$', 'Fr', 'kr', 'zÅ‚', 'KÄ', 'R', 'Ø¯.Ø¥', 'Ø±.Ø³', 'Ø±.Ù‚'))
 );
 
 create table if not exists public."Conversations" (
@@ -290,3 +290,5 @@ create index if not exists notes_user_updated_idx on public."Notes"(user_id, upd
 create index if not exists conversations_user_updated_idx on public."Conversations"(user_id, updated_at desc);
 create index if not exists chatmessages_conversation_created_idx on public."ChatMessages"(conversation_id, created_at);
 create index if not exists users_info_auth_user_idx on public."Users_Info"(auth_user_id);
+
+

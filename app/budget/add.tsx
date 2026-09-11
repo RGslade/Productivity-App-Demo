@@ -1,17 +1,21 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/AppDatePicker';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useTransactions } from '@/hooks/useTransactions';
+import { Switch } from '@/components/ui/Switch';
+import { useCreateTransaction, useTransactionCategories } from '@/hooks/useTransactions';
 import { CreateTransactionRequest, TransactionType } from '@/types/transaction';
+import { RecurrenceFrequency } from '@/types/recurringTransaction';
 import { useThemeColour } from '@/hooks/useThemeColour';
-import { formatDate } from '@/hooks/dataHandler';
+import { formatDate, showAlert } from '@/hooks/dataHandler';
+import { isCurrencyAmountInput, isValidCurrencyAmount } from '@/lib/currencyAmount';
 
-//Render the add transactions screen.
+/** Renders the add transaction form and saves a new transaction entry. */
 export default function AddTransactionScreen() {
   const { type } = useLocalSearchParams<{ type?: string; month?: string; year?: string; }>();
   const [title, setTitle] = useState('');
@@ -19,20 +23,29 @@ export default function AddTransactionScreen() {
   const [amount, setAmount] = useState('');
   const [selectedType, setSelectedType] = useState<TransactionType>(type === 'expense' ? TransactionType.Expense : TransactionType.Income);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  // const [monthNumber] = useState(month ? parseInt(month, 10) : new Date().getMonth() + 1);
   const [dueDate, setDueDate] = useState<Date>(new Date);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { createTransaction, categories, fetchCategories } = useTransactions();
+  const createTransactionMutation = useCreateTransaction();
+  const { data: categories = [], error: categoriesError, isLoading: categoriesLoading } = useTransactionCategories();
   const backgroundColour = useThemeColour({}, 'background');
   const textColour = useThemeColour({}, 'text');
+
+  /** Gets categories that match the currently selected transaction type. */
   const filteredCategories = useMemo(
     () => categories.filter(category => category.transaction_type === selectedType),
     [categories, selectedType]
   );
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+  /** Accepts currency amounts with up to two decimal places and nine significant digits. */
+  const handleAmountChange = (value: string) => {
+    if (isCurrencyAmountInput(value)) {
+      setAmount(value);
+    }
+  };
 
   useEffect(() => {
     if (selectedCategory && !filteredCategories.some(category => category.id === selectedCategory)) {
@@ -40,17 +53,17 @@ export default function AddTransactionScreen() {
     }
   }, [filteredCategories, selectedCategory]);
 
-  //Handle the transaction addition.
+  /** Validates input and saves a new transaction row. */
   const handleSave = async () => {
     if (!title.trim() || !amount.trim() || !dueDate || !selectedCategory) {
-      Alert.alert('Validation Error', 'Please fill in all required fields.');
+      showAlert('Validation Error', 'Please fill in all required fields.');
       console.warn('Please fill in all required fields');
       return;
     }
 
     const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid amount greater than 0.');
+    if (!isValidCurrencyAmount(amount)) {
+      showAlert('Validation Error', 'Please enter a valid amount greater than 0, with no more than 9 significant digits.');
       console.warn('Please enter a valid amount greater than 0');
       return;
     }
@@ -64,20 +77,21 @@ export default function AddTransactionScreen() {
         amount: selectedType === 'Expense' ? -Math.abs(numericAmount) : Math.abs(numericAmount),
         type: selectedType,
         due_date: dueDate.toISOString(),
+        is_recurring: isRecurring,
+        recurrence_frequency: isRecurring ? recurrenceFrequency : null,
       };
-
-      //Calls the hook method with the payload.
-      await createTransaction(transactionData);
-      Alert.alert('Success', 'Transaction created successfully.');
+      await createTransactionMutation.mutateAsync(transactionData);
+      showAlert('Success', 'Transaction created successfully.');
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to create transaction. Please try again.');
+      showAlert('Error', 'Failed to create transaction. Please try again.');
       console.error('Failed to create transaction:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  /** Updates date input state from the native picker. */
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -86,7 +100,7 @@ export default function AddTransactionScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+    <KeyboardAvoidingView enabled={Platform.OS === 'ios'} style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <ThemedView style={styles.content} lightColour={backgroundColour} darkColour={backgroundColour}>
           <View style={styles.header}>
@@ -99,13 +113,13 @@ export default function AddTransactionScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Type *</ThemedText>
               <View style={styles.typeButtons}>
-                <TouchableOpacity style={[styles.typeButton, {backgroundColor: backgroundColour}, selectedType === TransactionType.Income && styles.typeButtonActive, selectedType === TransactionType.Income && { backgroundColor: '#22C55E' }]}
+                <TouchableOpacity analyticsId="budget_add_income_type" analyticsControlType="selector" style={[styles.typeButton, {backgroundColor: backgroundColour}, selectedType === TransactionType.Income && styles.typeButtonActive, selectedType === TransactionType.Income && { backgroundColor: '#22C55E' }]}
                   onPress={() => setSelectedType(TransactionType.Income)}>
                   <ThemedText style={[styles.typeButtonText, {color: textColour}, selectedType === TransactionType.Income && styles.typeButtonTextActive]}>
                     Income
                   </ThemedText>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity analyticsId="budget_add_expense_type" analyticsControlType="selector"
                   style={[styles.typeButton, {backgroundColor: backgroundColour}, selectedType === TransactionType.Expense && styles.typeButtonActive, selectedType === TransactionType.Expense && { backgroundColor: '#EF4444' }]}
                   onPress={() => setSelectedType(TransactionType.Expense)}>
                   <ThemedText style={[styles.typeButtonText, {color: textColour}, selectedType === TransactionType.Expense && styles.typeButtonTextActive]}>
@@ -117,11 +131,22 @@ export default function AddTransactionScreen() {
 
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Category *</ThemedText>
+              {categoriesError ? (
+                <ThemedText style={styles.errorText}>Categories could not be loaded. Please try again.</ThemedText>
+              ) : null}
+              {categoriesLoading ? (
+                <ThemedText style={styles.helperText}>Loading categories...</ThemedText>
+              ) : null}
               <View style={styles.categoryButtons}>
                 {filteredCategories.map((category) => (
-                  <Button key={category.id} title={category.name}
-                    variant={selectedCategory === category.id ? 'primary' : 'secondary'} size="small"
-                    onPress={() => setSelectedCategory(category.id)} style={styles.categoryButton}/>
+                  <Button analyticsId="app_budget_add_set_selected_category"
+                    key={category.id}
+                    title={category.name}
+                    variant={selectedCategory === category.id ? 'primary' : 'secondary'}
+                    size="small"
+                    onPress={() => setSelectedCategory(category.id)}
+                    style={styles.categoryButton}
+                  />
                 ))}
               </View>
             </View>
@@ -134,7 +159,7 @@ export default function AddTransactionScreen() {
 
             {/* Amount */}
             <View style={styles.inputGroup}>
-              <Input key="amount-input" placeholder="Enter amount" value={amount} onChangeText={setAmount} keyboardType="numeric" label="Amount" required={true} labelStyle={styles.label}
+              <Input key="amount-input" placeholder="Enter amount" value={amount} onChangeText={handleAmountChange} keyboardType="decimal-pad" label="Amount" required={true} labelStyle={styles.label}
                 style={styles.input} />
             </View>
 
@@ -147,23 +172,51 @@ export default function AddTransactionScreen() {
             {/* Due Date */}
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Date</ThemedText>
-              <Button title={dueDate ? formatDate(dueDate.toString()) : 'Select Date'} variant="secondary" onPress={() => setShowDatePicker(true)} style={styles.dateButton} textStyle={styles.dateButtonText} />
+              <Button analyticsId="app_budget_add_set_show_date_picker" title={dueDate ? formatDate(dueDate.toString()) : 'Select Date'} variant="secondary" onPress={() => setShowDatePicker(true)} style={styles.dateButton} textStyle={styles.dateButtonText} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Switch
+                label="Recurring"
+                description={isRecurring ? `Repeats ${recurrenceFrequency === 'monthly' ? 'each month on this date' : 'every week from this date'}.` : 'Create this as a one-off transaction.'}
+                value={isRecurring}
+                onValueChange={setIsRecurring}
+              />
+              {isRecurring ? (
+                <View style={styles.frequencyButtons}>
+                  <Button
+                    analyticsId="app_budget_add_recurring_monthly"
+                    title="Monthly"
+                    variant={recurrenceFrequency === 'monthly' ? 'primary' : 'secondary'}
+                    size="small"
+                    onPress={() => setRecurrenceFrequency('monthly')}
+                    style={styles.frequencyButton}
+                  />
+                  <Button
+                    analyticsId="app_budget_add_recurring_weekly"
+                    title="Weekly"
+                    variant={recurrenceFrequency === 'weekly' ? 'primary' : 'secondary'}
+                    size="small"
+                    onPress={() => setRecurrenceFrequency('weekly')}
+                    style={styles.frequencyButton}
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
           <View style={styles.buttonContainer}>
-            <Button title="Cancel" variant="secondary" onPress={() => router.back()} style={styles.cancelButton}/>
-            <Button title={`Add ${selectedType}`} variant="primary" onPress={handleSave} loading={loading} disabled={loading || !selectedCategory} style={styles.saveButton}/>
+            <Button analyticsId="app_budget_add_cancel" title="Cancel" variant="secondary" onPress={() => router.back()} style={styles.cancelButton}/>
+            <Button analyticsId="app_budget_add_handle_save" title={`Add ${selectedType}`} variant="primary" onPress={handleSave} loading={loading} disabled={loading || categoriesLoading || !selectedCategory} style={styles.saveButton}/>
           </View>
         </ThemedView>
       </ScrollView>
 
       {showDatePicker && (
-        <DateTimePicker value={dueDate || new Date()} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={handleDateChange} />
+        <DateTimePicker value={dueDate || new Date()} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onValueChange={handleDateChange} />
       )}
     </KeyboardAvoidingView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -172,6 +225,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     flexGrow: 1,
     paddingBottom: 20,
   },
@@ -189,6 +245,17 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
   },
+  closeButton: {
+    padding: 8,
+  },
+  closeText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  card: {
+    marginBottom: 24,
+    padding: 16,
+  },
   form: {
     gap: 16,
   },
@@ -199,6 +266,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginBottom: 8,
+  },
+  helperText: {
+    fontSize: 13,
+    marginBottom: 8,
+    opacity: 0.72,
+  },
+  errorText: {
+    fontSize: 13,
+    marginBottom: 8,
+    color: '#B4472F',
   },
   input: {
     minHeight: 44,
@@ -219,13 +296,21 @@ const styles = StyleSheet.create({
   categoryButton: {
     minWidth: 100,
   },
+  frequencyButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  frequencyButton: {
+    flex: 1,
+  },
   typeButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    // borderColor: '#DEE2E6',
+    borderColor: '#DEE2E6',
     backgroundColor: '#F8F9FA',
     alignItems: 'center',
   },
@@ -247,6 +332,7 @@ const styles = StyleSheet.create({
     borderColor: '#DEE2E6',
     backgroundColor: '#F8F9FA',
     minHeight: 44,
+    justifyContent: 'center',
   },
   dateButtonText: {
     fontSize: 16,

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { userService } from './userService';
 import { LoginResponse } from '@/types/user';
+import type { Provider } from '@supabase/supabase-js';
 
 //const userId = (await userService.getUserProfile()).id; WOAH WOAH DO NOT USE THIS. THIS CUASES AN ERROR THAT IS ONLY RECOGNISABLE AT RUNTIME AND NOT EDIT, BUT THE ERROR INDICATES NOTHING TO DO WITH THIS LINE (TOOK ME FUCKING AGES TO FIND)
 
@@ -12,6 +13,33 @@ const maskEmailForLog = (value: string): string => {
         : `${localPart.slice(0, 2)}***`;
 
     return domain ? `${maskedLocal}@${domain}` : maskedLocal;
+};
+
+/** Formats unknown Edge Function error fields without losing object detail. */
+const formatFunctionErrorDetail = (value: unknown): string | null => {
+    if (value === undefined || value === null || value === '') {
+        return null;
+    }
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return String(value);
+    }
+};
+
+/** Detects network-level Edge Function failures that callers may handle as availability states. */
+const isFunctionFetchError = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') {
+        return false;
+    }
+
+    const { name } = error as { name?: string };
+    return name === 'FunctionsFetchError';
 };
 
 class DatabaseService {
@@ -76,10 +104,12 @@ class DatabaseService {
         return { data: data as T[], error };
     }
 
-    async getAll<T>(table: string, orderField?: string): Promise<{ data: T[], error: any }> {
+    async getAll<T>(table: string, orderField?: string, suppressErrorLog: boolean = false): Promise<{ data: T[], error: any }> {
         const { data, error } = orderField ? await supabase.from(table).select('*').eq('user_id', (await userService.getUserProfile())?.id).order(orderField) : await supabase.from(table).select('*').eq('user_id', (await userService.getUserProfile())?.id);
         if (error) {
-            console.error('DBService.getall', error, data);
+            if (!suppressErrorLog) {
+                console.error('DBService.getall', error, data);
+            }
             throw new Error(error.message);
         }
         return { data: data as T[], error };
@@ -126,9 +156,9 @@ class DatabaseService {
         return { data: data as T, error };
     }
 
-    async insertToTableGlobal(table: string, rowValues: any, additionalFields?: string, uniqueIdentifierName?: string, uniqueIdentifier?: any): Promise<any> {
+    async insertToTableGlobal(table: string, item: any, additionalFields?: string, uniqueIdentifierName?: string, uniqueIdentifier?: any): Promise<any> {
         const selectors = additionalFields ? "*, " + additionalFields : "*"
-        const { data, error } = uniqueIdentifierName && uniqueIdentifier ? await supabase.from(table).insert({ ...rowValues, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }).eq(uniqueIdentifierName, uniqueIdentifier).select(selectors).single() : await supabase.from(table).insert({ ...rowValues, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }).select(selectors).single();
+        const { data, error } = uniqueIdentifierName && uniqueIdentifier ? await supabase.from(table).insert({ ...item, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }).eq(uniqueIdentifierName, uniqueIdentifier).select(selectors).single() : await supabase.from(table).insert({ ...item, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }).select(selectors).single();
         if (error) {
             console.error('DBService.insertToTable', error);
             throw new Error(error.message);
@@ -136,7 +166,7 @@ class DatabaseService {
         return data;
     }
 
-    async insertToTable<T>(table: string, rowValues: any): Promise<{ data: T, error: any }> {
+    async insertToTable<T>(table: string, item: any): Promise<{ data: T, error: any }> {
         const isUserScoped =
             table === 'Conversations' ||
             table === 'ToDoItems' ||
@@ -144,11 +174,12 @@ class DatabaseService {
             table.includes('UserSettings') ||
             table === 'Feedback' ||
             table === 'Transactions' ||
+            table === 'CustomLinks' ||
             table === 'LifeNestMonthlyUsage' ||
             table === 'LifeNestTokenPurchases';
         const insertData = isUserScoped
-            ? { ...rowValues, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }
-            : { ...rowValues, created_at: new Date().toISOString() };
+            ? { ...item, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }
+            : { ...item, created_at: new Date().toISOString() };
         const { data, error } = await supabase.from(table).insert(insertData);
         if (error) {
             console.error('DBService.insertToTable error:', error);
@@ -157,13 +188,14 @@ class DatabaseService {
         return { data: data as T, error };
     }
 
-    async insertAndSelect<T>(table: string, rowValues: any, uniqueIdentifierName?: string, uniqueIdentifier?: any, additionalFields?: string): Promise<{ data: T, error: any }> {
+     async insertAndSelect<T>(table: string, item: any, uniqueIdentifierName?: string, uniqueIdentifier?: any, additionalFields?: string): Promise<{ data: T, error: any }> {
         const selectors = additionalFields ? "*, " + additionalFields : "*"
-        const { data, error } = uniqueIdentifier && uniqueIdentifierName ? await supabase.from(table).insert({ ...rowValues, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }).eq(uniqueIdentifierName, uniqueIdentifier).select(selectors).single() : await supabase.from(table).insert({ ...rowValues, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id }).select(selectors).single();
+        const insertData = { ...item, created_at: new Date().toISOString(), user_id: (await userService.getUserProfile())?.id };
+        const { data, error } = uniqueIdentifier && uniqueIdentifierName ? await supabase.from(table).insert(insertData).eq(uniqueIdentifierName, uniqueIdentifier).select(selectors).single() : await supabase.from(table).insert(insertData).select(selectors).single();
         return { data: data as T, error };
-    }
+     }
 
-    async deleteFromTable(table: string, uniqueIdentifierName?: string, uniqueIdentifier?: any): Promise<any> {
+    async deleteFromTable(table: string, uniqueIdentifierName?: string, uniqueIdentifier?: any): Promise<{ data: null, error: any }> {
         const query = supabase.from(table);
         const finalQuery = uniqueIdentifierName && uniqueIdentifier ? query.delete().eq(uniqueIdentifierName, uniqueIdentifier) : query.delete().eq('user_id', (await userService.getUserProfile())?.id);
 
@@ -172,7 +204,10 @@ class DatabaseService {
             console.error('DBService.deleteFromTable', error);
             throw new Error(error.message);
         }
-        return error;
+        // Supabase DELETE requests do not return row data unless explicitly selected.
+        // Keep the helper response consistent with the other database methods so
+        // callers can safely inspect `error` on successful deletes as well.
+        return { data: null, error };
     }
 
     async signInWithPassword(email: string, password: string): Promise<LoginResponse> {
@@ -183,7 +218,7 @@ class DatabaseService {
         }).then(async (res) => {
             return res;
         }).catch((error) => {
-            console.error('[Auth][DatabaseService] Sign-in failed before response', {
+            console.error('[Auth][DatabaseService] Supabase signInWithPassword threw before response', {
                 email: maskedEmail,
                 message: error instanceof Error ? error.message : String(error),
                 code: typeof error === 'object' && error ? (error as { code?: string }).code : undefined,
@@ -193,7 +228,7 @@ class DatabaseService {
         });
 
         if (error) {
-            console.error('[Auth][DatabaseService] Sign-in returned an error', {
+            console.error('[Auth][DatabaseService] Supabase signInWithPassword returned error', {
                 email: maskedEmail,
                 message: error.message,
                 code: error.code,
@@ -203,7 +238,7 @@ class DatabaseService {
         }
 
         if (!data?.user || !data?.session) {
-            console.error('[Auth][DatabaseService] Sign-in returned an incomplete auth payload', {
+            console.error('[Auth][DatabaseService] Supabase signInWithPassword returned an incomplete auth payload', {
                 email: maskedEmail,
                 hasUser: Boolean(data?.user),
                 hasSession: Boolean(data?.session),
@@ -223,12 +258,12 @@ class DatabaseService {
         await supabase.auth.signOut();
     }
 
-    async signInWithOAuth(provider: 'google', redirectTo: string): Promise<string> {
+    async signInWithOAuth(provider: Provider, redirectTo: string, scopes?: string): Promise<string> {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider,
             options: {
                 redirectTo,
-                scopes: 'email profile',
+                scopes,
                 skipBrowserRedirect: true,
             },
         });
@@ -243,6 +278,17 @@ class DatabaseService {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
             console.error('DBService.exchangeCodeForSession', error);
+            throw error;
+        }
+    }
+
+    async setSessionFromOAuthTokens(accessToken: string, refreshToken: string): Promise<void> {
+        const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+        });
+        if (error) {
+            console.error('DBService.setSessionFromOAuthTokens', error);
             throw error;
         }
     }
@@ -265,12 +311,14 @@ class DatabaseService {
             const enrichedMessage = [
                 functionName,
                 error.message || 'Function invocation failed',
-                typeof error === 'object' && error && 'context' in error ? String((error as { context?: unknown }).context) : null,
-                typeof error === 'object' && error && 'details' in error ? String((error as { details?: unknown }).details) : null,
-                typeof error === 'object' && error && 'hint' in error ? String((error as { hint?: unknown }).hint) : null,
+                typeof error === 'object' && error && 'context' in error ? formatFunctionErrorDetail((error as { context?: unknown }).context) : null,
+                typeof error === 'object' && error && 'details' in error ? formatFunctionErrorDetail((error as { details?: unknown }).details) : null,
+                typeof error === 'object' && error && 'hint' in error ? formatFunctionErrorDetail((error as { hint?: unknown }).hint) : null,
             ].filter(Boolean).join(' | ');
-            console.error('DBService.executeFunction', {
+            const log = isFunctionFetchError(error) ? console.warn : console.error;
+            log('DBService.executeFunction', {
                 functionName,
+                payloadKeys: Object.keys(payload),
                 error,
                 enrichedMessage,
             });

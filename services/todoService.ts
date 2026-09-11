@@ -1,6 +1,7 @@
 import { supabase, getSession } from '../lib/supabase';
 import { ToDoItem, Category, CreateToDoRequest, UpdateToDoRequest, CreateCategoryRequest, PremiumCategory, ChecklistItem } from '../types/todo';
 import databaseService from '@/services/databaseService';
+import { getStaticCached } from '@/services/staticCache';
 
 class TodoService {
   private async attachChecklistItems(todos: ToDoItem[]): Promise<ToDoItem[]> {
@@ -57,7 +58,7 @@ class TodoService {
     today.setHours(0, 0, 0, 0);
 
     return todos.filter(todo => {
-      if (!todo["due_date_&_time"]) return false;
+      if (todo.is_complete || !todo["due_date_&_time"]) return false;
       const dueDate = new Date(todo["due_date_&_time"]);
       return dueDate >= today && dueDate < new Date(today.getTime() + 24 * 60 * 60 * 1000);
     });
@@ -70,7 +71,7 @@ class TodoService {
     futureDate.setDate(now.getDate() + todoSoonDeterminer);
 
     return todos.filter(todo => {
-      if (!todo["due_date_&_time"]) return false;
+      if (todo.is_complete || !todo["due_date_&_time"]) return false;
       const dueDate = new Date(todo["due_date_&_time"]);
       return dueDate >= now && dueDate <= futureDate;
     });
@@ -134,12 +135,49 @@ class TodoService {
     }
 
     if (updates.checklist_items) {
-      for (const item of updates.checklist_items) {
-        await supabase
+      const { data: existingItems, error: existingItemsError } = await supabase
+        .from('ToDoChecklistItems')
+        .select('id')
+        .eq('todo_id', id);
+      if (existingItemsError) throw new Error(existingItemsError.message);
+
+      const incomingIds = new Set(updates.checklist_items.filter((item) => item.id !== undefined).map((item) => item.id));
+      const removedIds = (existingItems || []).map((item) => item.id).filter((itemId) => !incomingIds.has(itemId));
+      if (removedIds.length > 0) {
+        const { error: removeError } = await supabase
           .from('ToDoChecklistItems')
-          .update({ is_complete: item.is_complete, updated_at: new Date().toISOString() })
+          .delete()
+          .eq('todo_id', id)
+          .in('id', removedIds);
+        if (removeError) throw new Error(removeError.message);
+      }
+
+      const newItems = updates.checklist_items.filter((item) => item.id === undefined);
+      if (newItems.length > 0) {
+        const { error: insertError } = await supabase
+          .from('ToDoChecklistItems')
+          .insert(newItems.map((item, index) => ({
+            todo_id: id,
+            user_id: data.user_id,
+            text: item.text?.trim() || 'Checklist item',
+            is_complete: item.is_complete,
+            position: item.position ?? index,
+          })));
+        if (insertError) throw new Error(insertError.message);
+      }
+
+      for (const item of updates.checklist_items.filter((candidate) => candidate.id !== undefined)) {
+        const { error: itemError } = await supabase
+          .from('ToDoChecklistItems')
+          .update({
+            ...(item.text !== undefined ? { text: item.text.trim() || 'Checklist item' } : {}),
+            is_complete: item.is_complete,
+            ...(item.position !== undefined ? { position: item.position } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', item.id)
           .eq('todo_id', id);
+        if (itemError) throw new Error(itemError.message);
       }
     }
 
@@ -173,11 +211,11 @@ class TodoService {
 
 
   async getPremiumCategories(): Promise<PremiumCategory[]> {
-    const { data, error } = await supabase.from('PremiumCategories').select('*').order('name');
-    if (error) {
-      throw new Error(error.message);
-    }
-    return data || [];
+    return getStaticCached('premium-categories', async () => {
+      const { data, error } = await supabase.from('PremiumCategories').select('id,name,created_at').order('name');
+      if (error) throw new Error(error.message);
+      return data || [];
+    });
   }
 
   async createCategory(categoryData: CreateCategoryRequest): Promise<Category> {
@@ -287,7 +325,7 @@ class TodoService {
    */
   async getTasksWithReminders(): Promise<ToDoItem[]> {
     const todos = await this.getToDoItems();
-    return todos.filter(todo => todo.remind_me);
+    return todos.filter(todo => todo.remind_me && !todo.is_complete);
   }
 
   /**
@@ -393,7 +431,7 @@ class TodoService {
     // Not started (0%)
     if (progress === 0) {
       return {
-        title: 'Ready to Get Started? 🚀',
+        title: 'Ready to Get Started? ðŸš€',
         body: `${addressUser}${task.title} is waiting for you! Starting now will help you build momentum. You've got this!`,
       };
     }
@@ -401,7 +439,7 @@ class TodoService {
     // Just started (1-25%)
     if (progress < 25) {
       return {
-        title: 'Great Start! ✨',
+        title: 'Great Start! âœ¨',
         body: `${addressUser}keep that momentum going on ${task.title}! You're off to a good beginning.`,
       };
     }
@@ -409,7 +447,7 @@ class TodoService {
     // Making progress (25-50%)
     if (progress < 50) {
       return {
-        title: 'Halfway There! 💪',
+        title: 'Halfway There! ðŸ’ª',
         body: `${addressUser}you're doing awesome on ${task.title}! You're over 1/4 of the way through.`,
       };
     }
@@ -417,22 +455,22 @@ class TodoService {
     // More than halfway (50-75%)
     if (progress < 75) {
       return {
-        title: 'Almost Halfway! 🎯',
-        body: `${addressUser}${task.title} is taking shape! You're past the midpoint – keep pushing!`,
+        title: 'Almost Halfway! ðŸŽ¯',
+        body: `${addressUser}${task.title} is taking shape! You're past the midpoint â€“ keep pushing!`,
       };
     }
 
     // Almost done (75-99%)
     if (progress < 100) {
       return {
-        title: 'So Close! 🏁',
+        title: 'So Close! ðŸ',
         body: `${addressUser}you're nearly there on ${task.title}! Just a little more and you'll cross the finish line.`,
       };
     }
 
     // Completed (shouldn't happen but just in case)
     return {
-      title: '🎉 Task Complete!',
+      title: 'ðŸŽ‰ Task Complete!',
       body: `${addressUser}amazing work on ${task.title}! You did it!`,
     };
   }
@@ -449,27 +487,27 @@ class TodoService {
 
     if (daysUntilDue === 0) {
       return {
-        title: '⏰ Due Today!',
+        title: 'â° Due Today!',
         body: `${addressUser}${task.title} is due today! Time to bring it home!`,
       };
     }
 
     if (daysUntilDue === 1) {
       return {
-        title: '⏱️ Due Tomorrow',
+        title: 'â±ï¸ Due Tomorrow',
         body: `${addressUser}${task.title} is due tomorrow! Get ready to finish strong!`,
       };
     }
 
     if (daysUntilDue === 7) {
       return {
-        title: '📅 One Week Left',
+        title: 'ðŸ“… One Week Left',
         body: `${addressUser}${task.title} is due in one week. Perfect time to plan your approach!`,
       };
     }
 
     return {
-      title: '📋 Coming Up',
+      title: 'ðŸ“‹ Coming Up',
       body: `${addressUser}don't forget about ${task.title}! Due in ${daysUntilDue} days.`,
     };
   }
@@ -487,7 +525,7 @@ class TodoService {
     );
 
     return {
-      title: '⚠️ Task Overdue',
+      title: 'âš ï¸ Task Overdue',
       body: `${addressUser}${task.title} is ${daysOverdue} day${
         daysOverdue === 1 ? '' : 's'
       } overdue. Let's get it done!`,
@@ -504,24 +542,24 @@ class TodoService {
     const addressUser = username ? `${username}, ` : '';
     const messages = [
       {
-        title: '✨ No Tasks? Great Job!',
+        title: 'âœ¨ No Tasks? Great Job!',
         body: `${addressUser}you're all caught up! Time to relax or add a new goal to work towards.`,
       },
       {
-        title: '🌟 Clear Slate!',
+        title: 'ðŸŒŸ Clear Slate!',
         body: `${addressUser}no tasks on your list! How about creating one to keep yourself moving forward?`,
       },
       {
-        title: '🎯 Ready for a Challenge?',
+        title: 'ðŸŽ¯ Ready for a Challenge?',
         body: `${addressUser}you've finished everything! Add a new task and keep that momentum going!`,
       },
       {
-        title: '💡 Time to Dream Big',
+        title: 'ðŸ’¡ Time to Dream Big',
         body: `${addressUser}all clear! What's something new you want to accomplish? Start here!`,
       },
       {
-        title: '🚀 Onward and Upward',
-        body: `${addressUser}no pending tasks – perfect moment to plan your next big move!`,
+        title: 'ðŸš€ Onward and Upward',
+        body: `${addressUser}no pending tasks â€“ perfect moment to plan your next big move!`,
       },
     ];
 

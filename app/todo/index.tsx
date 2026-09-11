@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
+import { Chip, Eyebrow } from '@/components/ui/Surfaces';
+import { ReadinessRing } from '@/components/ui/ReadinessRing';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Switch } from '@/components/ui/Switch';
@@ -12,7 +15,7 @@ import { ToDoItem } from '@/types/todo';
 import { todoService } from '@/services/todoService';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { useThemeColour } from '@/hooks/useThemeColour';
-import {settingsService} from '@/services/settingsService';
+import { useToDoSettings } from '@/hooks/useSettings';
 import { formatDate, showAlert } from '@/hooks/dataHandler';
 
 export default function TodoListScreen() {
@@ -23,9 +26,12 @@ export default function TodoListScreen() {
   const [sortBy, setSortBy] = useState<'dueDate' | 'title' | 'category'>('dueDate');
   const { todos, categories, premiumCategories, loading, fetchTodos, updateTodo, deleteToDo, } = useTodos();
   const backgroundColor = useThemeColour({}, 'background');
-  const [soonDays, setSoonDays] = useState<number | null>(null);
-  useEffect(() => { fetchTodos(); }, [fetchTodos]);
-  useEffect(() => { settingsService.getToDoSoonDays?.().then(setSoonDays); }, []);
+  const successColour = useThemeColour({}, 'success');
+  const dangerColour = useThemeColour({}, 'danger');
+  const warningColour = useThemeColour({}, 'warning');
+  const primaryColour = useThemeColour({}, 'primary');
+  const { data: todoSettings } = useToDoSettings();
+  const soonDays = todoSettings?.todo_soon_determiner ?? 7;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -128,22 +134,13 @@ export default function TodoListScreen() {
 
   const getStatusColour = useCallback((status: string) => {
     switch (status) {
-      case 'completed': return '#22C55E';
-      case 'overdue': return '#EF4444';
-      case 'due-soon': return '#F59E0B';
-      case 'normal': return '#3B82F6';
-      default: return '#3B82F6';
+      case 'completed': return successColour;
+      case 'overdue': return dangerColour;
+      case 'due-soon': return warningColour;
+      case 'normal': return primaryColour;
+      default: return primaryColour;
     }
-  }, []);
-
-  const setCardBorderColour = useCallback(
-    (statusColour: string) => ({
-      borderWidth: 0,
-      borderLeftWidth: 4,
-      borderColor: statusColour,
-    }),
-    []
-  );
+  }, [successColour, dangerColour, warningColour, primaryColour]);
 
   if (loading && !todos) {
     return (
@@ -153,67 +150,85 @@ export default function TodoListScreen() {
     );
   }
 
-  if (soonDays === null) {
-    return <ThemedView style={styles.loadingContainer}><LoadingSpinner /></ThemedView>;
-  }
+  const doneCount = filteredAndSortedTodos.filter((todo) => getTodoStatus(todo) === 'completed').length;
+  const openCount = filteredAndSortedTodos.length - doneCount;
+  const completionPercent = filteredAndSortedTodos.length === 0
+    ? 0 : Math.round((doneCount / filteredAndSortedTodos.length) * 100);
+
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
+      <ThemedView style={[styles.content, { backgroundColor }]} >
       <View style={styles.header}>
-        <View>
-          <ThemedText type="title" style={styles.title}>
-            Tasks & Checklists
-          </ThemedText>
+        <View style={styles.headerCopy}>
+          <Eyebrow>Your nest</Eyebrow>
           {premiumCategory ? (
             <ThemedText style={styles.filterTag}>Filtered: {premiumCategory}</ThemedText>
           ) : null}
         </View>
-        <Button title="Add" onPress={() => router.push('/todo/add')} size="small" />
+        <Button analyticsId="app_todo_index_add" title="Add" onPress={() => router.push('/todo/add')} size="small" />
       </View>
 
       <ScrollView style={styles.todoList} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <Card style={styles.filtersCard}>
-          <ThemedText type="subtitle" style={styles.filtersTitle}>
-            Filter & Sort
-          </ThemedText>
+        <ThemedView style={styles.chipRail} lightColour="transparent" darkColour="transparent">
+          {([
+            ['all', 'All'], ['tasks', 'Tasks'], ['checklists', 'Checklists'],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity key={value} analyticsId="app_todo_index_item_filter" analyticsControlType="filter" onPress={() => setItemFilter(value)}>
+              <Chip label={label} active={itemFilter === value} />
+            </TouchableOpacity>
+          ))}
+        </ThemedView>
 
-          <View style={styles.filterRow}>
-            <ThemedText style={styles.filterLabel}>Type:</ThemedText>
-            <View style={styles.filterButtons}>
-              <Button title="All" variant={itemFilter === 'all' ? 'primary' : 'secondary'} size="small" onPress={() => setItemFilter('all')} style={styles.filterButton} />
-              <Button title="Tasks" variant={itemFilter === 'tasks' ? 'primary' : 'secondary'} size="small" onPress={() => setItemFilter('tasks')} style={styles.filterButton} />
-              <Button title="Checklists" variant={itemFilter === 'checklists' ? 'primary' : 'secondary'} size="small" onPress={() => setItemFilter('checklists')} style={styles.filterButton} />
-            </View>
-          </View>
+        <ThemedView style={styles.chipRail} lightColour="transparent" darkColour="transparent">
+          {([
+            ['all', 'Everything'],
+            ['pending', 'Still to do'],
+            ['completed', 'Sorted'],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity
+              key={value}
+              analyticsId="app_todo_index_status_filter"
+              analyticsControlType="filter"
+              onPress={() => setFilter(value)}
+            >
+              <Chip label={label} active={filter === value} />
+            </TouchableOpacity>
+          ))}
+        </ThemedView>
 
-          <View style={styles.filterRow}>
-            <ThemedText style={styles.filterLabel}>Show:</ThemedText>
-            <View style={styles.filterButtons}>
-              <Button title="All" variant={filter === 'all' ? 'primary' : 'secondary'} size="small"
-                onPress={() => setFilter('all')} style={styles.filterButton}
-              />
-              <Button title="Pending" variant={filter === 'pending' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('pending')}
-                style={styles.filterButton}
-              />
-              <Button title="Completed" variant={filter === 'completed' ? 'primary' : 'secondary'}
-                size="small" onPress={() => setFilter('completed')} style={styles.filterButton}
-              />
-            </View>
-          </View>
+        <ThemedView style={styles.chipRail} lightColour="transparent" darkColour="transparent">
+          {([
+            ['dueDate', 'By due date'],
+            ['title', 'By title'],
+            ['category', 'By category'],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity
+              key={value}
+              analyticsId="app_todo_index_sort"
+              analyticsControlType="filter"
+              onPress={() => setSortBy(value)}
+            >
+              <Chip label={label} active={sortBy === value} />
+            </TouchableOpacity>
+          ))}
+        </ThemedView>
 
-          <View style={styles.filterRow}>
-            <ThemedText style={styles.filterLabel}>Sort by:</ThemedText>
-            <View style={styles.filterButtons}>
-              <Button title="Due Date" variant={sortBy === 'dueDate' ? 'primary' : 'secondary'}
-                size="small" onPress={() => setSortBy('dueDate')} style={styles.filterButton}
-              />
-              <Button title="Title" variant={sortBy === 'title' ? 'primary' : 'secondary'}
-                size="small" onPress={() => setSortBy('title')} style={styles.filterButton}
-              />
-              <Button title="Category" variant={sortBy === 'category' ? 'primary' : 'secondary'}
-                size="small" onPress={() => setSortBy('category')} style={styles.filterButton}
-              />
-            </View>
-          </View>
+        <Card style={styles.progressCard}>
+          <ThemedView style={styles.progressStats} lightColour="transparent" darkColour="transparent">
+            <ThemedView style={styles.progressStat} lightColour="transparent" darkColour="transparent">
+              <Eyebrow>Still to do</Eyebrow>
+              <ThemedText type="metric" style={styles.progressValue}>{openCount}</ThemedText>
+            </ThemedView>
+            <ThemedView style={styles.progressStat} lightColour="transparent" darkColour="transparent">
+              <Eyebrow>Sorted</Eyebrow>
+              <ThemedText type="metric" style={styles.progressValue}>{doneCount}</ThemedText>
+            </ThemedView>
+            <ReadinessRing
+              value={completionPercent}
+              fraction={{ numerator: doneCount, denominator: filteredAndSortedTodos.length }}
+              tone="page"
+            />
+          </ThemedView>
         </Card>
 
         {/* Todo List */}
@@ -227,15 +242,15 @@ export default function TodoListScreen() {
           filteredAndSortedTodos.map((todo) => {
             const status = getTodoStatus(todo);
             const statusColour = getStatusColour(status);
-            const Cardborder = setCardBorderColour(statusColour);
             return (
-              <TouchableOpacity key={todo.id} onPress={() => router.push(`/todo/edit/${todo.id}`)} >
-                <Card style={[styles.todoCard, Cardborder && { borderWidth: Cardborder.borderWidth, borderColor: Cardborder.borderColor, borderLeftWidth: Cardborder.borderLeftWidth }]}>
+              <TouchableOpacity analyticsId="todo_open_item" analyticsControlType="list_item" key={todo.id} onPress={() => router.push(`/todo/edit/${todo.id}`)} >
+                <Card style={styles.todoCard}>
                   <View style={styles.todoHeader}>
                     <View style={styles.todoInfo}>
-                      <ThemedText style={styles.todoCategory} type={'default'}>
-                        {getCategoryName(todo.category_id)}
-                      </ThemedText>
+                      <View style={styles.todoTopline}>
+                        <View style={[styles.statusDot, statusColour ? { backgroundColor: statusColour } : null]} />
+                        <Eyebrow>{getCategoryName(todo.category_id)}</Eyebrow>
+                      </View>
                       {todo.item_kind === 'checklist' ? (
                         <>
                           <ThemedText style={[styles.todoTitle, status === 'completed' && styles.completedTitle]}>{todo.title}</ThemedText>
@@ -245,9 +260,10 @@ export default function TodoListScreen() {
                         </>
                       ) : (
                         <>
-                          <Switch value={todo.is_complete} label={todo.title} labelStyle={[styles.todoTitle, todo.is_complete && styles.completedTitle]} description={'Target: ' + todo.description + ' ' + todo.unit}
+                          <ThemedText style={[styles.todoTitle, todo.is_complete && styles.completedTitle]}>{todo.title}</ThemedText>
+                          <Switch value={todo.is_complete} label="Complete" labelStyle={styles.completeLabel} description={['Target:', todo.description, todo.unit].filter(Boolean).join(' ').trim()}
                             descriptionStyle={[styles.todoDescription, todo.is_complete && styles.completedText]} onValueChange={() => handleToggleComplete(todo.id)} />
-                          <ProgressBar percentage={Number(todo.progress) / Number(todo.description) * 100} />
+                          <ProgressBar percentage={toProgressPercent(todo.progress, todo.description)} />
                         </>
                       )}
                     </View>
@@ -258,8 +274,8 @@ export default function TodoListScreen() {
                         Due: {formatDate(todo['due_date_&_time'])}
                       </ThemedText>
                     )}
-                    <TouchableOpacity onPress={() => handleDelete(todo.id, todo.title)} style={styles.deleteButton}>
-                      <ThemedText style={styles.deleteText}>Delete</ThemedText>
+                    <TouchableOpacity analyticsId="todo_delete_item" analyticsControlType="icon" onPress={() => handleDelete(todo.id, todo.title)} style={styles.deleteButton}>
+                      <ThemedText style={[styles.deleteText, { color: dangerColour }]}>Delete</ThemedText>
                     </TouchableOpacity>
                   </View>
                 </Card>
@@ -268,13 +284,61 @@ export default function TodoListScreen() {
           })
         )}
       </ScrollView>
+      </ThemedView>
     </ThemedView>
   );
 }
 
+/** Progress is a fraction of the target when the target is numeric, else the raw value. */
+function toProgressPercent(progress: unknown, target: unknown): number {
+  const current = Number(progress);
+  const goal = Number(target);
+  if (!Number.isFinite(current)) return 0;
+  if (!Number.isFinite(goal) || goal <= 0) return Math.max(0, Math.min(100, current));
+  return Math.max(0, Math.min(100, (current / goal) * 100));
+}
+
 const styles = StyleSheet.create({
-  container: {
+  headerCopy: {
     flex: 1,
+    gap: 4,
+  },
+  chipRail: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginBottom: 16,
+  },
+  progressCard: {
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  progressStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 24,
+  },
+  progressStat: {
+    gap: 3,
+  },
+  progressValue: {
+    fontSize: 26,
+    lineHeight: 30,
+  },
+  headerEyebrow: {
+    marginBottom: 6,
+  },
+  cardEyebrow: {
+    marginBottom: 6,
+  },
+  container: {
+    width:"100%",
+    flex: 1,
+  },
+    content: {
+    width: Platform.OS === 'web' ? '70%' : '100%',
+        alignSelf: 'center',
+        flex:1,
   },
   loadingContainer: {
     flex: 1,
@@ -290,7 +354,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    letterSpacing: 0,
+    fontWeight: '500',
   },
   filterTag: {
     fontSize: 12,
@@ -323,6 +388,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   todoList: {
+
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
     flex: 1,
     paddingHorizontal: 16,
   },
@@ -334,6 +403,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     opacity: 0.6,
+  },
+  todoTopline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 8,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
   },
   todoCard: {
     padding: 8,
@@ -351,6 +431,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  completeLabel: {
+    fontSize: 14,
   },
   completedTitle: {
     textDecorationLine: 'line-through',
@@ -384,7 +467,6 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     fontSize: 12,
-    color: '#EF4444',
     fontWeight: '500',
   },
 });

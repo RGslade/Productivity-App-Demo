@@ -1,28 +1,37 @@
 import databaseService from '@/services/databaseService';
+import { supabase } from '@/lib/supabase';
 import { FeedbackForm } from '@/types/feedback';
 import { AllSettings, UserSettingsAccount, UserSettingsChatBot, UserSettingsDisplay, UserSettingsToDo, UserSettingsTransactions } from '@/types/settings';
 import { AVAILABLE_FONTS } from '@/constants/Fonts';
 import { ThemeMode } from '@/types/theme';
 import { DEFAULT_CURRENCY_SYMBOL, MAJOR_CURRENCY_SYMBOLS } from '@/constants/CurrencySymbols';
-import { BackendTables } from '@/constants/backendResources';
 
 class SettingsService {
   /**
-   * Returns a global app config value by key.
+   * Returns a global AppConfig value by key.
    */
-  async getBackendConfigValue(key: string): Promise<string> {
-    const { data } = await databaseService.getSingleGlobal<{ value: string }>(BackendTables.appConfig, 'key', key);
-    return data?.value;
+  async getAppConfigValue(key: string): Promise<string> {
+    const { data, error } = await supabase
+      .from('AppConfig')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data?.value ?? '';
   }
 
   /**
-   * Returns the current legal-document versions from app config.
+   * Returns the current legal-document versions from AppConfig.
    */
   async getLegalDocumentVersions(): Promise<{ terms: string; privacy: string; lifenest: string }> {
     const [terms, privacy, lifenest] = await Promise.all([
-      this.getBackendConfigValue('terms_version').catch(() => 'v1'),
-      this.getBackendConfigValue('privacy_policy_version').catch(() => 'v1'),
-      this.getBackendConfigValue('lifenest_terms_version').catch(() => 'v1'),
+      this.getAppConfigValue('terms_version').catch(() => 'v1'),
+      this.getAppConfigValue('privacy_policy_version').catch(() => 'v1'),
+      this.getAppConfigValue('lifenest_terms_version').catch(() => 'v1'),
     ]);
 
     return {
@@ -33,7 +42,7 @@ class SettingsService {
   }
 
   /**
-   * Returns the current LifeNest terms version from app config.
+   * Returns the current LifeNest terms version from AppConfig.
    */
   async getLifeNestTermsVersion(): Promise<string> {
     const { lifenest } = await this.getLegalDocumentVersions();
@@ -57,7 +66,8 @@ class SettingsService {
 
   async getDisplaySettings(mainCall: boolean): Promise<UserSettingsDisplay> {
     const { data } = mainCall === false ? await databaseService.getSingleOrCreate<UserSettingsDisplay>('UserSettings_Display_&_Content') : await databaseService.getSingle<UserSettingsDisplay>('UserSettings_Display_&_Content');
-    return data;
+    const supportedFont = AVAILABLE_FONTS.some((font) => font.value === data.default_font);
+    return { ...data, default_font: supportedFont ? data.default_font : 'System' };
   }
 
   async updateDisplaySettings(updates: Partial<Omit<UserSettingsDisplay, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserSettingsDisplay> {
@@ -106,7 +116,14 @@ class SettingsService {
 
   async getChatBotSettings(): Promise<UserSettingsChatBot> {
     const { data } = await databaseService.getSingleOrCreate<UserSettingsChatBot>('UserSettings_ChatBot');
-    return data;
+    return {
+      ...data,
+      preferred_model: data.preferred_model === 'gpt-4o' || !data.preferred_model ? 'gpt-5.6-luna' : data.preferred_model,
+      grades_context_enabled: data.grades_context_enabled ?? true,
+      transactions_context_enabled: data.transactions_context_enabled ?? true,
+      todos_context_enabled: data.todos_context_enabled ?? true,
+      checklists_context_enabled: data.checklists_context_enabled ?? true,
+    };
   }
 
   async updateChatBotSettings(updates: Partial<Omit<UserSettingsChatBot, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserSettingsChatBot> {
@@ -181,10 +198,6 @@ class SettingsService {
   /** Saves the user's preferred currency symbol for budget displays. */
   async setPreferredCurrency(symbol: string): Promise<void> {
     await this.updateTransactionSettings({ preferred_currency: symbol });
-  }
-
-  async getSessionTimeout(): Promise<number> {
-    return (await this.getAccountSettings()).session_timeout;
   }
 
   async insertFeedback(formData: FeedbackForm): Promise<void> {

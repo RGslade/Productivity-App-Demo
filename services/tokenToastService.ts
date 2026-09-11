@@ -1,4 +1,5 @@
-import { Alert, Platform, ToastAndroid } from 'react-native';
+import { Platform, ToastAndroid } from 'react-native';
+import { showAlert } from '@/hooks/dataHandler';
 
 /** Shows consistent feedback when LifeNest tokens are consumed. */
 export function showTokenUsageToast(tokensUsed: number) {
@@ -8,5 +9,5 @@ export function showTokenUsageToast(tokensUsed: number) {
     return;
   }
 
-  Alert.alert('Tokens used', message);
+  showAlert('Tokens used', message);
 }

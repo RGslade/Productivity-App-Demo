@@ -1,11 +1,22 @@
 import React from 'react';
 import { StyleSheet, Text, type TextProps } from 'react-native';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { AppFonts, Type } from '@/constants/Fonts';
 
 export type ThemedTextProps = TextProps & {
   lightColour?: string;
   darkColour?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  type?:
+    | 'default'
+    | 'title'
+    | 'defaultSemiBold'
+    | 'subtitle'
+    | 'link'
+    | 'display'
+    | 'displaySmall'
+    | 'eyebrow'
+    | 'metric'
+    | 'caption';
 };
 
 /** Renders theme-aware text content. */
@@ -20,8 +31,7 @@ export function ThemedText({
   const color = useThemeColour({ light: lightColour, dark: darkColour }, 'text');
 
   return (
-    <Text style={[{ color }, type === 'default' ? styles.default : undefined, type === 'title' ? styles.title : undefined, type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        type === 'subtitle' ? styles.subtitle : undefined, type === 'link' ? styles.link : undefined, style,]} {...rest}>
+    <Text style={[{ color }, styles[type], style]} {...rest}>
       {children}
     </Text>
   );
@@ -29,26 +39,27 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   default: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontFamily: AppFonts.regular,
+    fontSize: 15,
+    lineHeight: 22,
   },
   defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
+    fontFamily: AppFonts.semiBold,
+    fontSize: 15,
+    lineHeight: 21,
+    letterSpacing: 0,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  title: Type.display,
+  subtitle: Type.heading,
   link: {
-    lineHeight: 30,
-    fontSize: 16,
-    color: '#0a7ea4',
+    fontFamily: AppFonts.semiBold,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#C05F3C',
   },
+  display: Type.display,
+  displaySmall: Type.displaySmall,
+  eyebrow: Type.eyebrow,
+  metric: Type.metric,
+  caption: Type.caption,
 });

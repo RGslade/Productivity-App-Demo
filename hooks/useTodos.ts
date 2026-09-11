@@ -26,13 +26,15 @@ export const useTodos = () => {
   const categoriesQuery = useQuery({
     queryKey: todoKeys.categories(),
     queryFn: () => todoService.getCategories(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000,
   });
 
   const premiumCategoriesQuery = useQuery({
     queryKey: todoKeys.premiumCategories(),
     queryFn: () => todoService.getPremiumCategories(),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 
   const createMutation = useMutation({
@@ -74,6 +76,8 @@ export const useTodos = () => {
     todos: todosQuery.data || [],
     categories: categoriesQuery.data || [],
     premiumCategories: premiumCategoriesQuery.data || [],
+    categoriesLoading: categoriesQuery.isLoading,
+    categoriesError: categoriesQuery.error,
     loading: todosQuery.isLoading,
     error: todosQuery.error,
     fetchTodos: todosQuery.refetch,
@@ -103,7 +107,18 @@ export const useCategories = () => {
   return useQuery({
     queryKey: todoKeys.categories(),
     queryFn: () => todoService.getCategories(),
-    staleTime: 10 * 60 * 1000, // 10 minutes (categories don't change often)
+    staleTime: 30 * 60 * 1000, // 30 minutes (categories don't change often)
+    gcTime: 60 * 60 * 1000,
+  });
+};
+
+/** Gets reusable premium todo categories without loading todo list data. */
+export const usePremiumCategories = () => {
+  return useQuery({
+    queryKey: todoKeys.premiumCategories(),
+    queryFn: () => todoService.getPremiumCategories(),
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 };
 

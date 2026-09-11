@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, TouchableOpacity, Share, Alert, Linking, StyleSheet } from 'react-native';
+import { View, ScrollView, Share, Linking, Platform, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useThemeColour } from '@/hooks/useThemeColour';
 import { useJobDetails } from '@/hooks/useJobDetails';
@@ -9,7 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { formatDate } from '@/hooks/dataHandler';
+import { formatDate, showAlert } from '@/hooks/dataHandler';
 import { jobApplicationService } from '@/services/jobApplicationService';
 
 interface SectionProps {
@@ -72,7 +73,7 @@ export default function JobDetailsScreen() {
 
   const handleApply = async () => {
     if (!job?.url) {
-      Alert.alert('Unable to Apply', 'No application URL available for this job.');
+      showAlert('Unable to Apply', 'No application URL available for this job.');
       return;
     }
 
@@ -90,10 +91,10 @@ export default function JobDetailsScreen() {
           application_url: job.url,
         });
       } else {
-        Alert.alert('Unable to Open', 'Could not open the job application URL.');
+        showAlert('Unable to Open', 'Could not open the job application URL.');
       }
     } catch {
-      Alert.alert('Error', 'Failed to open job application.');
+      showAlert('Error', 'Failed to open job application.');
     } finally {
       setIsApplying(false);
     }
@@ -111,6 +112,7 @@ export default function JobDetailsScreen() {
       });
     } catch (err) {
       console.error('Share error:', err);
+      showAlert('Share Failed', 'Could not share this job. Please try again.');
     }
   };
 
@@ -122,7 +124,7 @@ export default function JobDetailsScreen() {
           <ThemedText style={styles.errorTitle}>Failed to Load Job Details</ThemedText>
           <ThemedText style={styles.errorMessage}>{error.message}</ThemedText>
           {error.details && <ThemedText style={styles.errorDetails}>{error.details}</ThemedText>}
-          <Button onPress={() => router.back()} style={{ marginTop: 16 }} title="Go Back" />
+          <Button analyticsId="app_jobdetails_item_go_back_2" onPress={() => router.back()} style={{ marginTop: 16 }} title="Go Back" />
         </View>
       </ThemedView>
     );
@@ -143,7 +145,7 @@ export default function JobDetailsScreen() {
           <Ionicons name="briefcase-outline" size={48} color={textColor} />
           <ThemedText style={styles.errorTitle}>Job Not Found</ThemedText>
           <ThemedText style={styles.errorMessage}>This job is no longer available.</ThemedText>
-          <Button onPress={() => router.back()} style={{ marginTop: 16 }} title="Go Back" />
+          <Button analyticsId="app_jobdetails_item_go_back_2" onPress={() => router.back()} style={{ marginTop: 16 }} title="Go Back" />
         </View>
       </ThemedView>
     );
@@ -152,7 +154,7 @@ export default function JobDetailsScreen() {
   // Format salary
   const formatSalary = (min?: number, max?: number, currency?: string) => {
     const curr = currency || 'GBP';
-    const currencySymbol = curr === 'GBP' ? '£' : '€';
+    const currencySymbol = curr === 'GBP' ? 'Â£' : 'â‚¬';
 
     if (min && max) {
       return `${currencySymbol}${min.toLocaleString()} - ${currencySymbol}${max.toLocaleString()}`;
@@ -234,10 +236,10 @@ export default function JobDetailsScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
-          <Button onPress={handleApply}
+          <Button analyticsId="app_jobdetails_item_handle_apply" onPress={handleApply}
             style={[styles.actionButton, { backgroundColor: themeColor }]}
             title={isApplying ? 'Opening...' : 'Apply Now'} />
-          <TouchableOpacity onPress={handleShare}
+          <TouchableOpacity analyticsId="app_jobdetails_item_share_button" analyticsControlType="icon" onPress={handleShare}
             style={[styles.shareButton, { borderColor: themeColor, borderWidth: 1.5 }]}>
             <Ionicons name="share-social" size={20} color={themeColor} />
           </TouchableOpacity>
@@ -253,6 +255,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
   },

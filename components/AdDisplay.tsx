@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Keyboard, Platform } from 'react-native';
+import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import MobileAds, {
   AdEventType,
   BannerAd,
@@ -13,6 +13,10 @@ import { adMobService } from '@/services/adMobService';
 let globalInterstitial: InterstitialAdType | null = null;
 let isGlobalInterstitialLoaded = false;
 let mobileAdsInitialisePromise: Promise<void> | null = null;
+
+interface MyBannerProps {
+  onBannerHeightChange?: (height: number) => void;
+}
 
 /** Initialises Google Mobile Ads once for the app runtime. */
 function initialiseMobileAds() {
@@ -69,10 +73,11 @@ export function showGlobalInterstitialAd() {
 }
 
 /** Displays the global banner ad for users who have not removed ads. */
-export default function MyBanner() {
+export default function MyBanner({ onBannerHeightChange }: MyBannerProps) {
   const [adInitialised, setAdInitialised] = useState(false);
   const [bannerAdUnitId, setBannerAdUnitId] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const isVisible = Boolean(adInitialised && !keyboardVisible && bannerAdUnitId);
 
   useEffect(() => {
     let mounted = true;
@@ -122,15 +127,33 @@ export default function MyBanner() {
     };
   }, []);
 
-  if (!adInitialised || keyboardVisible || !bannerAdUnitId) {
+  useEffect(() => {
+    if (!isVisible) {
+      onBannerHeightChange?.(0);
+    }
+  }, [isVisible, onBannerHeightChange]);
+
+  if (!isVisible || !bannerAdUnitId) {
     return null;
   }
 
   return (
-    <BannerAd
-      unitId={bannerAdUnitId}
-      size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-      requestOptions={{ requestNonPersonalizedAdsOnly: false }}
-    />
+    <View
+      style={styles.bannerHost}
+      onLayout={(event) => onBannerHeightChange?.(event.nativeEvent.layout.height)}
+    >
+      <BannerAd
+        unitId={bannerAdUnitId}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+        requestOptions={{ requestNonPersonalizedAdsOnly: false }}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  bannerHost: {
+    width: '100%',
+    alignItems: 'center',
+  },
+});

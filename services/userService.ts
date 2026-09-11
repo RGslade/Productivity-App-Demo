@@ -1,11 +1,28 @@
 import { AccountCompletionPrefill, UserInfo, UpdateProfileRequest } from '@/types/user';
 import { getCurrentUser, supabase } from '../lib/supabase';
-import databaseService from './databaseService';
-import { BackendTables } from '@/constants/backendResources';
+
+/** Identifies the expected missing-session condition during auth screens and session transitions. */
+export function isAuthenticationRequiredError(error: unknown): boolean {
+  const candidate = error as { name?: string; message?: string } | null;
+  return candidate?.name === 'AuthSessionMissingError'
+    || candidate?.message === 'Auth session missing!'
+    || candidate?.message === 'Not authenticated';
+}
 
 class UserService {
+  private cachedProfile: UserInfo | null = null;
 
-  /** Reads the most likely first name from OAuth metadata. */
+  /** Stores the authenticated profile for reuse during the current app session. */
+  setCachedUserProfile(profile: UserInfo | null): void {
+    this.cachedProfile = profile;
+  }
+
+  /** Clears any profile cached for the previous auth session. */
+  clearCachedUserProfile(): void {
+    this.cachedProfile = null;
+  }
+
+  /** Reads the most likely first name from Supabase OAuth metadata. */
   private readFirstName(metadata: Record<string, unknown>): string | undefined {
     if (typeof metadata.first_name === 'string') return metadata.first_name;
     if (typeof metadata.given_name === 'string') return metadata.given_name;
@@ -23,7 +40,7 @@ class UserService {
     return parts.length > 2 ? parts.slice(1, -1).join(' ') : undefined;
   }
 
-  /** Reads the most likely surname from OAuth metadata. */
+  /** Reads the most likely surname from Supabase OAuth metadata. */
   private readSurname(metadata: Record<string, unknown>): string | undefined {
     if (typeof metadata.surname === 'string') return metadata.surname;
     if (typeof metadata.last_name === 'string') return metadata.last_name;
@@ -49,55 +66,70 @@ class UserService {
     );
   }
 
-  /** Maps a profile row plus auth user data into the app's `UserInfo` shape. */
-  private mapUserInfo(profileRow: any, authUser: { email?: string | null; last_sign_in_at?: string | null } | null | undefined): UserInfo {
+  /** Maps a `Users_Info` row plus auth user data into the app's `UserInfo` shape. */
+  private mapUserInfo(data: any, user: { email?: string | null; last_sign_in_at?: string | null } | null | undefined): UserInfo {
+    if (!data?.id) {
+      throw new Error('Profile not found');
+    }
+
     return {
-      id: profileRow.id,
-      email_address: authUser?.email || '',
-      first_name: profileRow.first_name,
-      middle_names: profileRow.middle_names,
-      surname: profileRow.surname,
-      phone: profileRow.primary_phone_number?.toString(),
-      address_line_1: profileRow.address_line_1,
-      address_line_2: profileRow.address_line_2,
-      city: profileRow.city,
-      county: profileRow.county,
-      country: profileRow.country,
-      postcode: profileRow.postcode,
-      birth_date: profileRow.birth_date,
-      created_at: profileRow.created_at,
-      updated_at: profileRow.updated_at,
-      last_logged_in: authUser?.last_sign_in_at,
-      ethnicity: profileRow.ethnicity,
-      primary_phone_number: profileRow.primary_phone_number,
-      descending_access_level: profileRow.descending_access_level,
-      living_situation: profileRow.living_situation,
-      job_status: profileRow.job_status,
-      is_premium_user: profileRow.is_premium_user,
-      universal_credit: profileRow.universal_credit || false,
-      subscription_provider: profileRow.subscription_provider || null,
-      subscription_product_id: profileRow.subscription_product_id || null,
-      subscription_status: profileRow.subscription_status || null,
-      terms_accepted: profileRow.terms_accepted,
-      terms_accepted_at: profileRow.terms_accepted_at,
-      terms_version_accepted: profileRow.terms_version_accepted,
-      privacy_policy_accepted: profileRow.privacy_policy_accepted,
-      privacy_policy_accepted_at: profileRow.privacy_policy_accepted_at,
-      privacy_policy_version_accepted: profileRow.privacy_policy_version_accepted,
-      lifenest_terms_accepted: profileRow.lifenest_terms_accepted,
-      lifenest_terms_accepted_at: profileRow.lifenest_terms_accepted_at,
-      lifenest_terms_version_accepted: profileRow.lifenest_terms_version_accepted,
+      id: data.id,
+      email_address: user?.email || '',
+      first_name: data.first_name,
+      middle_names: data.middle_names,
+      surname: data.surname,
+      phone: data.primary_phone_number?.toString(),
+      address_line_1: data.address_line_1,
+      address_line_2: data.address_line_2,
+      city: data.city,
+      county: data.county,
+      country: data.country,
+      postcode: data.postcode,
+      birth_date: data.birth_date,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      last_logged_in: user?.last_sign_in_at,
+      ethnicity: data.ethnicity,
+      primary_phone_number: data.primary_phone_number,
+      descending_access_level: data.descending_access_level,
+      living_situation: data.living_situation,
+      job_status: data.job_status,
+      is_premium_user: data.is_premium_user,
+      universal_credit: data.universal_credit || false,
+      subscription_provider: data.subscription_provider || null,
+      subscription_product_id: data.subscription_product_id || null,
+      subscription_status: data.subscription_status || null,
+      terms_accepted: data.terms_accepted,
+      terms_accepted_at: data.terms_accepted_at,
+      terms_version_accepted: data.terms_version_accepted,
+      terms_viewed_at: data.terms_viewed_at,
+      terms_version_viewed: data.terms_version_viewed,
+      privacy_policy_accepted: data.privacy_policy_accepted,
+      privacy_policy_accepted_at: data.privacy_policy_accepted_at,
+      privacy_policy_version_accepted: data.privacy_policy_version_accepted,
+      privacy_policy_viewed_at: data.privacy_policy_viewed_at,
+      privacy_policy_version_viewed: data.privacy_policy_version_viewed,
+      lifenest_terms_accepted: data.lifenest_terms_accepted,
+      lifenest_terms_accepted_at: data.lifenest_terms_accepted_at,
+      lifenest_terms_version_accepted: data.lifenest_terms_version_accepted,
+      lifenest_terms_viewed_at: data.lifenest_terms_viewed_at,
+      lifenest_terms_version_viewed: data.lifenest_terms_version_viewed,
     } as UserInfo;
   }
 
   /** Loads one profile row by auth user id or returns null when no row exists yet. */
   async getProfileByAuthUserId(authUserId: string): Promise<UserInfo | null> {
-    const { data: profileRow, error } = await databaseService.getSingleGlobal<UserInfo>(BackendTables.userProfiles, 'auth_user_id', authUserId);
-    if (error || !profileRow?.id) {
+    const { data, error } = await supabase
+      .from('Users_Info')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+
+    if (error || !data?.id) {
       return null;
     }
 
-    return profileRow;
+    return data as UserInfo;
   }
 
   /** Builds the best available prefill payload for an authenticated but incomplete account. */
@@ -119,26 +151,45 @@ class UserService {
       job_status: profile?.job_status || (typeof metadata.job_status === 'string' ? metadata.job_status as any : undefined),
       terms_accepted: profile?.terms_accepted ?? (typeof metadata.terms_accepted === 'boolean' ? metadata.terms_accepted : undefined),
       privacy_policy_accepted: profile?.privacy_policy_accepted ?? (typeof metadata.privacy_policy_accepted === 'boolean' ? metadata.privacy_policy_accepted : undefined),
+      lifenest_terms_accepted: profile?.lifenest_terms_accepted ?? (typeof metadata.lifenest_terms_accepted === 'boolean' ? metadata.lifenest_terms_accepted : undefined),
+      terms_viewed_at: profile?.terms_viewed_at,
+      terms_version_viewed: profile?.terms_version_viewed,
+      privacy_policy_viewed_at: profile?.privacy_policy_viewed_at,
+      privacy_policy_version_viewed: profile?.privacy_policy_version_viewed,
+      lifenest_terms_viewed_at: profile?.lifenest_terms_viewed_at,
+      lifenest_terms_version_viewed: profile?.lifenest_terms_version_viewed,
     };
   }
 
-  async getUserProfile(): Promise<UserInfo> {
+  async getUserProfile(forceRefresh: boolean = false): Promise<UserInfo> {
+    if (!forceRefresh && this.cachedProfile?.id) {
+      return this.cachedProfile;
+    }
+
     const { data: { user }, error: userError } = await getCurrentUser();
 
-    if (userError || !user) {
-      //console.error('userService.getUserProfileError', userError);
-      //throw new Error('Not authenticated');
-      
+    if (userError || !user?.id) {
+      throw new Error('Not authenticated');
     }
-      const { data: profileRow, error } = await databaseService.getSingleGlobal<UserInfo>(BackendTables.userProfiles, "auth_user_id", user?.id);
 
-      if (error || !profileRow) {
-        console.error('userService.getUserProfile', error);
-        if (error?.code === 'PGRST116') {
-          throw new Error('Profile Error: ' + error.message);
-        }
-      }
-    return this.mapUserInfo(profileRow, user);
+    const { data, error } = await supabase
+      .from('Users_Info')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('userService.getUserProfile', error);
+      throw new Error(error.message);
+    }
+
+    if (!data?.id) {
+      throw new Error('Profile not found');
+    }
+
+    const profile = this.mapUserInfo(data, user);
+    this.cachedProfile = profile;
+    return profile;
   }
 
   async updateProfile(updates: UpdateProfileRequest): Promise<UserInfo> {
@@ -167,24 +218,37 @@ class UserService {
     if (updates.terms_accepted !== undefined) updateData.terms_accepted = updates.terms_accepted;
     if (updates.terms_accepted_at !== undefined) updateData.terms_accepted_at = updates.terms_accepted_at;
     if (updates.terms_version_accepted !== undefined) updateData.terms_version_accepted = updates.terms_version_accepted;
+    if (updates.terms_viewed_at !== undefined) updateData.terms_viewed_at = updates.terms_viewed_at;
+    if (updates.terms_version_viewed !== undefined) updateData.terms_version_viewed = updates.terms_version_viewed;
     if (updates.privacy_policy_accepted !== undefined) updateData.privacy_policy_accepted = updates.privacy_policy_accepted;
     if (updates.privacy_policy_accepted_at !== undefined) updateData.privacy_policy_accepted_at = updates.privacy_policy_accepted_at;
     if (updates.privacy_policy_version_accepted !== undefined) updateData.privacy_policy_version_accepted = updates.privacy_policy_version_accepted;
+    if (updates.privacy_policy_viewed_at !== undefined) updateData.privacy_policy_viewed_at = updates.privacy_policy_viewed_at;
+    if (updates.privacy_policy_version_viewed !== undefined) updateData.privacy_policy_version_viewed = updates.privacy_policy_version_viewed;
     if (updates.lifenest_terms_accepted !== undefined) updateData.lifenest_terms_accepted = updates.lifenest_terms_accepted;
     if (updates.lifenest_terms_accepted_at !== undefined) updateData.lifenest_terms_accepted_at = updates.lifenest_terms_accepted_at;
     if (updates.lifenest_terms_version_accepted !== undefined) updateData.lifenest_terms_version_accepted = updates.lifenest_terms_version_accepted;
+    if (updates.lifenest_terms_viewed_at !== undefined) updateData.lifenest_terms_viewed_at = updates.lifenest_terms_viewed_at;
+    if (updates.lifenest_terms_version_viewed !== undefined) updateData.lifenest_terms_version_viewed = updates.lifenest_terms_version_viewed;
 
     const { data: { user } } = await getCurrentUser();
-    const { data: updatedProfileRow, error } = await databaseService.updateTableGlobal<UserInfo>(BackendTables.userProfiles, updateData, undefined, 'auth_user_id', user?.id)
+    const { data, error } = await supabase
+      .from('Users_Info')
+      .update({ ...updateData, updated_at: new Date().toISOString() })
+      .eq('auth_user_id', user?.id)
+      .select()
+      .single();
     if (error) {
       console.error('userService.updateProfile', error);
       throw new Error(error.message);
     }
 
-    return this.mapUserInfo(updatedProfileRow, user);
+    const profile = this.mapUserInfo(data, user);
+    this.cachedProfile = profile;
+    return profile;
   }
 
-  /** Creates or updates the current auth user's profile row. */
+  /** Creates or updates the current auth user's `Users_Info` row. */
   async upsertCurrentUserProfile(updates: UpdateProfileRequest): Promise<UserInfo> {
     const { data: { user }, error: userError } = await getCurrentUser();
     if (userError || !user?.id) {
@@ -216,27 +280,35 @@ class UserService {
       terms_accepted: updates.terms_accepted,
       terms_accepted_at: updates.terms_accepted_at,
       terms_version_accepted: updates.terms_version_accepted,
+      terms_viewed_at: updates.terms_viewed_at,
+      terms_version_viewed: updates.terms_version_viewed,
       privacy_policy_accepted: updates.privacy_policy_accepted,
       privacy_policy_accepted_at: updates.privacy_policy_accepted_at,
       privacy_policy_version_accepted: updates.privacy_policy_version_accepted,
+      privacy_policy_viewed_at: updates.privacy_policy_viewed_at,
+      privacy_policy_version_viewed: updates.privacy_policy_version_viewed,
       lifenest_terms_accepted: updates.lifenest_terms_accepted,
       lifenest_terms_accepted_at: updates.lifenest_terms_accepted_at,
       lifenest_terms_version_accepted: updates.lifenest_terms_version_accepted,
+      lifenest_terms_viewed_at: updates.lifenest_terms_viewed_at,
+      lifenest_terms_version_viewed: updates.lifenest_terms_version_viewed,
       updated_at: new Date().toISOString(),
     };
 
-    const { data: savedProfileRow, error } = await supabase
-      .from(BackendTables.userProfiles)
+    const { data, error } = await supabase
+      .from('Users_Info')
       .upsert(payload, { onConflict: 'auth_user_id' })
       .select()
       .single();
 
-    if (error || !savedProfileRow) {
+    if (error || !data) {
       console.error('userService.upsertCurrentUserProfile', error);
       throw new Error(error?.message || 'Unable to save user profile');
     }
 
-    return this.mapUserInfo(savedProfileRow, user);
+    const profile = this.mapUserInfo(data, user);
+    this.cachedProfile = profile;
+    return profile;
   }
 
   async deleteAccount(): Promise<void> {
@@ -247,12 +319,16 @@ class UserService {
     }
 
     try {
-      await databaseService.executeRpc('delete_my_account');
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) {
+        throw new Error(error.message);
+      }
       try {
-        await databaseService.signOut();
+        await supabase.auth.signOut();
       } catch (error) {
         console.warn('userService.deleteAccount.signOut', error);
       }
+      this.clearCachedUserProfile();
     } catch (error) {
       console.error('userService.deleteAccount', error);
       throw error;
@@ -290,8 +366,8 @@ class UserService {
     return age;
   }
 
-  // Backwards-compatible alias used by existing screens and hooks.
-  async updateUser(updates: UpdateProfileRequest): Promise<UserInfo> {
+  // Additional methods expected by hooks/components
+  async updateUser(updates: UpdateProfileRequest): Promise<UserInfo> { //What is the point of this? It just calls an existing method on the same page???
     try {
       return await this.updateProfile(updates);
     } catch (error) {

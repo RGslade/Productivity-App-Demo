@@ -39,7 +39,7 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** Returns the current platform config keys used for force-update policy. */
+/** Returns the current platform AppConfig keys used for force-update policy. */
 function getPlatformConfigKeys() {
   if (Platform.OS === 'ios') {
     return {
@@ -64,11 +64,20 @@ function getAndroidFallbackStoreUrl(): string | null {
 class AppUpdateService {
   /** Returns mandatory-update state for the active platform and app version. */
   async getMandatoryUpdateState(currentVersion: string): Promise<MandatoryUpdateState> {
+    if (Platform.OS === 'web') {
+      return {
+        isRequired: false,
+        minimumVersion: null,
+        currentVersion,
+        storeUrl: null,
+      };
+    }
+
     try {
       const { minVersionKey, storeUrlKey } = getPlatformConfigKeys();
       const [minimumVersion, configuredStoreUrl] = await Promise.all([
-        settingsService.getBackendConfigValue(minVersionKey),
-        settingsService.getBackendConfigValue(storeUrlKey),
+        settingsService.getAppConfigValue(minVersionKey),
+        settingsService.getAppConfigValue(storeUrlKey),
       ]);
 
       const storeUrl = configuredStoreUrl || (Platform.OS === 'android' ? getAndroidFallbackStoreUrl() : null);

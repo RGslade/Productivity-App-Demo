@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -10,7 +10,15 @@ import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useEducationGrade, useEducationGrades } from '@/hooks/useEducationGrades';
 import { useThemeColour } from '@/hooks/useThemeColour';
-import { EDUCATION_GRADES, EDUCATION_TYPES, EducationType } from '@/types/educationGrade';
+import { showAlert } from '@/hooks/dataHandler';
+import { goBackOrReplace } from '@/services/navigationService';
+import {
+  EDUCATION_GRADES,
+  EDUCATION_TYPES,
+  EducationType,
+  getEducationGradeValidationError,
+  normalizeEducationGradeValue,
+} from '@/types/educationGrade';
 
 const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 const YEARS = Array.from({ length: 60 }, (_, index) => String(new Date().getFullYear() - index));
@@ -18,7 +26,7 @@ const YEARS = Array.from({ length: 60 }, (_, index) => String(new Date().getFull
 export default function EditEducationGradeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const gradeId = Number(id);
-  const { data: grade, isLoading } = useEducationGrade(gradeId);
+  const { data: grade, isLoading, isError } = useEducationGrade(gradeId);
   const { updateGrade, deleteGrade, isUpdating, isDeleting } = useEducationGrades();
   const cardBackground = useThemeColour({}, 'cardBackground');
   const [subject, setSubject] = useState('');
@@ -31,21 +39,27 @@ export default function EditEducationGradeScreen() {
   const [year, setYear] = useState('');
 
   useEffect(() => {
+    if (isError) {
+      showAlert('Unable to load grade', 'Please try again.', [{ text: 'OK', onPress: () => goBackOrReplace('/exams') }]);
+      return;
+    }
+    if (!isLoading && !grade) {
+      showAlert('Grade not found', 'This grade is no longer available.', [{ text: 'OK', onPress: () => goBackOrReplace('/exams') }]);
+      return;
+    }
     if (!grade) return;
     setSubject(grade.subject || '');
     setQualificationType(grade.qualification_type);
-
     if (grade.qualification_type === 'Other') setOtherGrade(grade.grade || '');
     else setSelectedGrade(grade.grade || '');
     setInstitutionName(grade.institution_name || '');
     setNotes(grade.notes || '');
-
     if (grade.date_achieved) {
       const [storedYear, storedMonth] = grade.date_achieved.split('-');
       setYear(storedYear || '');
       setMonth(storedMonth || '');
     }
-  }, [grade]);
+  }, [grade, isError, isLoading]);
 
   const availableGrades = useMemo(() => {
     if (qualificationType === 'Other') return [];
@@ -53,14 +67,14 @@ export default function EditEducationGradeScreen() {
   }, [qualificationType]);
 
   const handleSave = async () => {
-    const trimmedSubject = subject.trim();
-    const gradeValue = qualificationType === 'Other' ? otherGrade.trim() : selectedGrade;
-
-    if (!trimmedSubject || !qualificationType || !gradeValue) {
-      Alert.alert('Missing required fields', 'Subject, qualification type and grade are required.');
+    const trimmedSubject = normalizeEducationGradeValue(subject);
+    const normalizedQualificationType = normalizeEducationGradeValue(qualificationType) as EducationType;
+    const gradeValue = normalizeEducationGradeValue(qualificationType === 'Other' ? otherGrade : selectedGrade);
+    const validationError = getEducationGradeValidationError(trimmedSubject, normalizedQualificationType, gradeValue);
+    if (validationError) {
+      showAlert('Missing required fields', validationError);
       return;
     }
-
     const dateAchieved = month && year ? `${year}-${month}-01` : null;
 
     try {
@@ -68,29 +82,33 @@ export default function EditEducationGradeScreen() {
         id: gradeId,
         payload: {
           subject: trimmedSubject,
-          qualification_type: qualificationType,
+          qualification_type: normalizedQualificationType,
           grade: gradeValue,
           institution_name: institutionName.trim() || null,
           date_achieved: dateAchieved,
           notes: notes.trim() || null,
         },
       });
-      router.back();
+      goBackOrReplace('/exams');
     } catch (error) {
       console.error('EditEducationGradeScreen.handleSave', error);
-      Alert.alert('Unable to save', 'Please try again.');
+      showAlert('Unable to save', 'Please try again.');
     }
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete grade', 'Are you sure you want to delete this grade?', [
-      { text: 'Cancel', style: 'cancel' }, {text: 'Delete', style: 'destructive', onPress: async () => {
+    showAlert('Delete grade', 'Are you sure you want to delete this grade?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
           try {
             await deleteGrade(gradeId);
-            router.back();
+            goBackOrReplace('/exams');
           } catch (error) {
             console.error('EditEducationGradeScreen.handleDelete', error);
-            Alert.alert('Unable to delete', 'Please try again.');
+            showAlert('Unable to delete', 'Please try again.');
           }
         },
       },
@@ -106,55 +124,70 @@ export default function EditEducationGradeScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView enabled={Platform.OS === 'ios'} style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+      >
       <Card style={[styles.card, { backgroundColor: cardBackground }]}> 
         <ThemedText type="subtitle" style={styles.title}>Edit Grade</ThemedText>
+
         <ThemedText style={styles.label}>Qualification type *</ThemedText>
-        <Picker selectedValue={qualificationType} onValueChange={(value) => { setQualificationType(value as EducationType); setSelectedGrade(''); }}>
+        <Picker selectedValue={qualificationType} onValueChange={(value) => { setQualificationType(normalizeEducationGradeValue(value) as EducationType); setSelectedGrade(''); setOtherGrade(''); }}>
           {EDUCATION_TYPES.map(type => <Picker.Item key={type} label={type} value={type} />)}
         </Picker>
+
         <Input label="Subject *" value={subject} onChangeText={setSubject} placeholder="e.g. Maths" />
+
         {qualificationType !== 'Other' ? (
           <>
             <ThemedText style={styles.label}>Grade *</ThemedText>
-            <Picker selectedValue={selectedGrade} onValueChange={(value) => setSelectedGrade(value)}>
+            <Picker selectedValue={selectedGrade} onValueChange={(value) => setSelectedGrade(normalizeEducationGradeValue(value))}>
               <Picker.Item label="Select grade" value="" />
               {availableGrades.map(item => <Picker.Item key={item} label={item} value={item} />)}
             </Picker>
           </>
         ) : (
-          <Input label="Grade details *" value={otherGrade} onChangeText={setOtherGrade} multiline numberOfLines={4} style={styles.textArea} />
+          <Input label="Grade details *" value={otherGrade} onChangeText={setOtherGrade} placeholder="Enter your grade details" multiline numberOfLines={4} style={styles.textArea} />
         )}
+
         <Input label="School / Institution" value={institutionName} onChangeText={setInstitutionName} placeholder="Optional" />
+
         <ThemedText style={styles.label}>Date achieved</ThemedText>
         <ThemedView style={styles.dateRow}>
           <ThemedView style={styles.datePickerWrap}>
-            <Picker selectedValue={month} onValueChange={(value) => setMonth(value)}>
+            <Picker selectedValue={month} onValueChange={(value) => setMonth(normalizeEducationGradeValue(value))}>
               <Picker.Item label="Month" value="" />
               {MONTHS.map(item => <Picker.Item key={item} label={item} value={item} />)}
             </Picker>
           </ThemedView>
           <ThemedView style={styles.datePickerWrap}>
-            <Picker selectedValue={year} onValueChange={(value) => setYear(value)}>
+            <Picker selectedValue={year} onValueChange={(value) => setYear(normalizeEducationGradeValue(value))}>
               <Picker.Item label="Year" value="" />
               {YEARS.map(item => <Picker.Item key={item} label={item} value={item} />)}
             </Picker>
           </ThemedView>
         </ThemedView>
+
         <Input label="Notes" value={notes} onChangeText={setNotes} placeholder="Optional" multiline numberOfLines={4} style={styles.textArea} />
+
         <ThemedView style={styles.buttonRow}>
-          <Button title={isUpdating ? 'Saving...' : 'Save'} onPress={handleSave} disabled={isUpdating} style={styles.button} />
-          <Button title="Cancel" variant="secondary" onPress={() => router.back()} style={styles.button} />
+          <Button analyticsId="app_grades_edit_item_handle_save" title={isUpdating ? 'Saving...' : 'Save'} onPress={handleSave} disabled={isUpdating} style={styles.button} />
+          <Button analyticsId="app_grades_edit_item_cancel" title="Cancel" variant="secondary" onPress={() => goBackOrReplace('/exams')} style={styles.button} />
         </ThemedView>
-        <Button title={isDeleting ? 'Deleting...' : 'Delete'} variant="danger" onPress={handleDelete} disabled={isDeleting} style={styles.deleteButton} />
+        <Button analyticsId="app_grades_edit_item_handle_delete" title={isDeleting ? 'Deleting...' : 'Delete'} variant="danger" onPress={handleDelete} disabled={isDeleting} style={styles.deleteButton} />
       </Card>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16 },
+  keyboardContainer: { flex: 1 },
+  container: { flex: 1, width: '100%' },
+  content: { width: Platform.OS === 'web' ? '70%' : '100%', alignSelf: 'center', padding: 16 },
   card: { padding: 16 },
   title: { marginBottom: 12 },
   label: { marginTop: 6, marginBottom: 4, fontWeight: '600' },

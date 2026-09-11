@@ -31,12 +31,18 @@ export interface UserInfo {
   terms_accepted?: boolean;
   terms_accepted_at?: string | null;
   terms_version_accepted?: string | null;
+  terms_viewed_at?: string | null;
+  terms_version_viewed?: string | null;
   privacy_policy_accepted?: boolean;
   privacy_policy_accepted_at?: string | null;
   privacy_policy_version_accepted?: string | null;
+  privacy_policy_viewed_at?: string | null;
+  privacy_policy_version_viewed?: string | null;
   lifenest_terms_accepted?: boolean;
   lifenest_terms_accepted_at?: string | null;
   lifenest_terms_version_accepted?: string | null;
+  lifenest_terms_viewed_at?: string | null;
+  lifenest_terms_version_viewed?: string | null;
 }
 
 export interface UpdateProfileRequest {
@@ -64,12 +70,18 @@ export interface UpdateProfileRequest {
   terms_accepted?: boolean;
   terms_accepted_at?: string | null;
   terms_version_accepted?: string | null;
+  terms_viewed_at?: string | null;
+  terms_version_viewed?: string | null;
   privacy_policy_accepted?: boolean;
   privacy_policy_accepted_at?: string | null;
   privacy_policy_version_accepted?: string | null;
+  privacy_policy_viewed_at?: string | null;
+  privacy_policy_version_viewed?: string | null;
   lifenest_terms_accepted?: boolean;
   lifenest_terms_accepted_at?: string | null;
   lifenest_terms_version_accepted?: string | null;
+  lifenest_terms_viewed_at?: string | null;
+  lifenest_terms_version_viewed?: string | null;
 }
 
 export interface LoginRequest {
@@ -86,6 +98,13 @@ export interface AccountCompletionPrefill {
   job_status?: JobStatus;
   terms_accepted?: boolean;
   privacy_policy_accepted?: boolean;
+  lifenest_terms_accepted?: boolean;
+  terms_viewed_at?: string | null;
+  terms_version_viewed?: string | null;
+  privacy_policy_viewed_at?: string | null;
+  privacy_policy_version_viewed?: string | null;
+  lifenest_terms_viewed_at?: string | null;
+  lifenest_terms_version_viewed?: string | null;
 }
 
 export interface LoginResult {
@@ -115,12 +134,18 @@ export interface RegisterRequest {
   terms_accepted?: boolean;
   terms_accepted_at?: string | null;
   terms_version_accepted?: string | null;
+  terms_viewed_at?: string | null;
+  terms_version_viewed?: string | null;
   privacy_policy_accepted?: boolean;
   privacy_policy_accepted_at?: string | null;
   privacy_policy_version_accepted?: string | null;
+  privacy_policy_viewed_at?: string | null;
+  privacy_policy_version_viewed?: string | null;
   lifenest_terms_accepted?: boolean;
   lifenest_terms_accepted_at?: string | null;
   lifenest_terms_version_accepted?: string | null;
+  lifenest_terms_viewed_at?: string | null;
+  lifenest_terms_version_viewed?: string | null;
 }
 
 export interface ChangePasswordRequest {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +11,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useThemeColour } from '@/hooks/useThemeColour';
 import { showAlert } from '@/hooks/dataHandler';
 import {tempNotesStore} from '@/services/tempNotesStore';
+import { goBackOrReplace } from '@/services/navigationService';
 
 /** Renders note editing with optional title-edit mode and content editor. */
 export default function EditNoteScreen() {
@@ -28,7 +29,6 @@ export default function EditNoteScreen() {
 
   const [title, setTitle] = useState('');
   const [originalTitle, setOriginalTitle] = useState('');
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
 
@@ -47,7 +47,7 @@ export default function EditNoteScreen() {
     if (isTemporary || isLoading) return;
     if (note === null) {
       showAlert('Note Not Found', 'This note is no longer available.');
-      router.back();
+      goBackOrReplace('/notes');
     }
   }, [isLoading, isTemporary, note]);
 
@@ -56,7 +56,7 @@ export default function EditNoteScreen() {
     const tempNote = tempNotesStore.getById(id);
     if (!tempNote) {
       showAlert('Note Not Found', 'This temporary note is no longer available.');
-      router.back();
+      goBackOrReplace('/notes');
       return;
     }
     setTitle(tempNote.title || 'Untitled note');
@@ -85,7 +85,7 @@ export default function EditNoteScreen() {
       } else {
         await updateNote({ id: noteId, data: { title: title.trim(), content } });
       }
-      router.back();
+      goBackOrReplace('/notes');
     } catch (error) {
       console.error('Failed to update note:', error);
       showAlert('Save Failed', 'Unable to save your changes. Please try again.');
@@ -95,12 +95,12 @@ export default function EditNoteScreen() {
   /** Cancels editing and confirms discard when the note has unsaved changes. */
   const handleCancel = () => {
     if (!hasChanges) {
-      router.back();
+      goBackOrReplace('/notes');
       return;
     }
     showAlert('Discard Changes', 'Your changes will be lost. Continue?', [
       { text: 'Keep Editing', onPress: undefined, style: 'cancel' },
-      { text: 'Discard', onPress: () => router.back(), style: 'destructive' },
+      { text: 'Discard', onPress: () => goBackOrReplace('/notes'), style: 'destructive' },
     ]);
   };
 
@@ -115,9 +115,8 @@ export default function EditNoteScreen() {
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
-        <Button title={isUpdating ? 'Saving...' : 'Save'} onPress={handleSave} disabled={isUpdating} size="small" />
-        <Button title="Cancel" variant="secondary" onPress={handleCancel} size="small" />
-        <Button title={isEditingTitle ? 'Title Done' : 'Edit Title'} variant="secondary" onPress={() => setIsEditingTitle(prev => !prev)} size="small" />
+        <Button analyticsId="app_notes_edit_item_handle_save" title={isUpdating ? 'Saving...' : 'Save'} onPress={handleSave} disabled={isUpdating} size="small" />
+        <Button analyticsId="app_notes_edit_item_cancel" title="Cancel" variant="secondary" onPress={handleCancel} size="small" />
       </View>
 
       {isTemporary && (
@@ -126,20 +125,14 @@ export default function EditNoteScreen() {
         </ThemedText>
       )}
 
-      {isEditingTitle ? (
-        <Input
-          label="Title"
-          required={true}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Enter note title"
-          style={styles.titleInput}
-        />
-      ) : (
-        <ThemedText type="title" style={styles.noteTitle}>
-          {title || 'Untitled note'}
-        </ThemedText>
-      )}
+      <Input
+        label="Title"
+        required={true}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Enter note title"
+        style={styles.titleInput}
+      />
 
       <TextInput
         style={[styles.editor, { fontFamily: defaultFont, color: textColor, backgroundColor: inputBackground, borderColor: inputBorder }]}
@@ -157,6 +150,8 @@ export default function EditNoteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: Platform.OS === 'web' ? '70%' : '100%',
+    alignSelf: 'center',
     padding: 16,
   },
   loadingContainer: {
@@ -175,10 +170,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   titleInput: {
-    marginBottom: 12,
-  },
-  noteTitle: {
-    fontSize: 24,
     marginBottom: 12,
   },
   editor: {

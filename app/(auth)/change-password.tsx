@@ -1,7 +1,9 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
@@ -10,11 +12,12 @@ import { showAlert } from '@/hooks/dataHandler';
 import { useAuth } from '@/hooks/useAuth';
 import { authService, getAuthErrorAlert } from '@/services/authService';
 
-// Renders the password change form.
+/** Renders the password change form for both in-session and recovery flows. */
 export default function ChangePasswordScreen() {
   const { fromRecovery } = useLocalSearchParams<{ fromRecovery?: string }>();
   const isRecoveryFlow = fromRecovery === 'true';
   const { isAuthenticated } = useAuth();
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,9 +26,8 @@ export default function ChangePasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  //Change password handler.
+  /** Validates and submits the password update payload. */
   const handleChangePassword = async () => {
-    //if accessed from somewhere but the user is not logged in. 
     if (!isRecoveryFlow && !isAuthenticated) {
       showAlert('Sign in required', 'Please sign in first and then retry changing your password.');
       router.replace('/(auth)/login');
@@ -49,8 +51,10 @@ export default function ChangePasswordScreen() {
 
     try {
       setLoading(true);
-      //calls the method to issue the password change.
-      await authService.changePassword({currentPassword: isRecoveryFlow ? '' : currentPassword, newPassword});
+      await authService.changePassword({
+        currentPassword: isRecoveryFlow ? '' : currentPassword,
+        newPassword,
+      });
       showAlert('Password updated', 'Your password has been changed successfully.');
       router.replace(isRecoveryFlow ? '/(auth)/login' : '/settings');
     } catch (error) {
@@ -61,49 +65,72 @@ export default function ChangePasswordScreen() {
     }
   };
 
-  //Render the view.
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView enabled={Platform.OS === 'ios'} style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <ThemedView style={styles.content}>
           <View style={styles.header}>
             <ThemedText type="title" style={styles.title}>Change Password</ThemedText>
             <ThemedText type="subtitle" style={styles.subtitle}>
-              {isRecoveryFlow ? 'Set a new password for your account.' : 'Confirm your current password before setting a new one.'}
+              {isRecoveryFlow
+                ? 'Set a new password for your account.'
+                : 'Confirm your current password before setting a new one.'}
             </ThemedText>
           </View>
 
           {!isRecoveryFlow && (
             <View style={styles.passwordContainer}>
-              <Input label="Current Password" placeholder="Enter current password"
-                value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPassword}
-                autoComplete="current-password" style={[styles.input, styles.passwordInput]} />
-              <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowCurrentPassword((prev) => !prev)}>
+              <Input
+                label="Current Password"
+                placeholder="Enter current password"
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry={!showCurrentPassword}
+                autoComplete="current-password"
+                style={[styles.input, styles.passwordInput]}
+              />
+              <TouchableOpacity analyticsId="app_change_password_eye_icon_3" analyticsControlType="icon" style={styles.eyeIcon} onPress={() => setShowCurrentPassword((prev) => !prev)}>
                 <Ionicons name={showCurrentPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
               </TouchableOpacity>
             </View>
           )}
 
           <View style={styles.passwordContainer}>
-            <Input label="New Password" placeholder="Enter new password" value={newPassword}
-              onChangeText={setNewPassword} secureTextEntry={!showNewPassword} autoComplete="new-password"
-              style={[styles.input, styles.passwordInput]} />
-            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowNewPassword((prev) => !prev)}>
+            <Input
+              label="New Password"
+              placeholder="Enter new password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry={!showNewPassword}
+              autoComplete="new-password"
+              style={[styles.input, styles.passwordInput]}
+            />
+            <TouchableOpacity analyticsId="app_change_password_eye_icon_2" analyticsControlType="icon" style={styles.eyeIcon} onPress={() => setShowNewPassword((prev) => !prev)}>
               <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.passwordContainer}>
-            <Input label="Confirm New Password" placeholder="Confirm new password" value={confirmPassword}
-              onChangeText={setConfirmPassword} secureTextEntry={!showConfirmPassword} autoComplete="new-password"
-              style={[styles.input, styles.passwordInput]} />
-            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirmPassword((prev) => !prev)}>
+            <Input
+              label="Confirm New Password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+              autoComplete="new-password"
+              style={[styles.input, styles.passwordInput]}
+            />
+            <TouchableOpacity analyticsId="app_change_password_eye_icon" analyticsControlType="icon" style={styles.eyeIcon} onPress={() => setShowConfirmPassword((prev) => !prev)}>
               <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
             </TouchableOpacity>
           </View>
 
-          <Button title={loading ? 'Updating password...' : 'Update password'} onPress={handleChangePassword}
-            loading={loading} disabled={loading} />
+          <Button analyticsId="app_change_password_handle_change_password"
+            title={loading ? 'Updating password...' : 'Update password'}
+            onPress={handleChangePassword}
+            loading={loading}
+            disabled={loading}
+          />
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -115,6 +142,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     flexGrow: 1,
     justifyContent: 'center',
   },

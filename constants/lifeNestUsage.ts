@@ -1,5 +1,5 @@
 /**
- * Included LifeNest tokens granted to premium users each month.
+ * Included LifeNest tokens granted to active subscribers each month.
  */
 export const LIFENEST_MONTHLY_TOKEN_ALLOWANCE = 500;
 
@@ -14,7 +14,7 @@ export const LIFENEST_CHARACTERS_PER_TOKEN = 100;
 export const LIFENEST_MAX_INPUT_CHARACTERS = 500;
 
 /**
- * Ratio of the available monthly token pool that triggers the warning alert.
+ * Ratio of the available token pool that triggers the warning alert.
  */
 export const LIFENEST_USAGE_WARNING_RATIO = 0.85;
 

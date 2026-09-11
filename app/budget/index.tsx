@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
+import { Eyebrow, HeroCard, ListRow, SectionHeading, useHeroSurface } from '@/components/ui/Surfaces';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useTransactionsByMonth } from '@/hooks/useTransactions';
@@ -14,31 +16,81 @@ import { useTransactionSettings } from '@/hooks/useSettings';
 import { useThemeColour } from '@/hooks/useThemeColour';
 import { transactionService } from '@/services/transactionService';
 import { DEFAULT_CURRENCY_SYMBOL } from '@/constants/CurrencySymbols';
+import { recurringTransactionService } from '@/services/recurringTransactionService';
 
-//Render the transactions page.
+/** Shows the current month budget overview and transactions list. */
 export default function BudgetMonthScreen() {
   const month = GetCurrentMonth();
   const year = GetCurrentYear();
   const user = useCurrentUser();
   const [refreshing, setRefreshing] = useState(false);
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
-  const [incomeBarHeight, setIncomeBarHeight] = useState(0);
-  const [expenseBarHeight, setExpenseBarHeight] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
   const { transactions, loading, fetchTransactions } = useTransactionsByMonth(month, year);
   const { data: transactionSettings } = useTransactionSettings();
   const preferredCurrency = transactionSettings?.preferred_currency || DEFAULT_CURRENCY_SYMBOL;
   const backgroundColour = useThemeColour({}, 'background');
-  const textColour = useThemeColour({}, 'text');
-  const summaryBackgroundColour = useThemeColour({ light: '#F3F4F6', dark: '#2C2C2E' }, 'cardBackground');
+  // const borderColour = useThemeColour({ light: 'rgba(30, 28, 25, 0.10)', dark: 'rgba(247, 244, 236, 0.14)' }, 'border');
+  const summaryBackgroundColour = useThemeColour({ light: 'rgba(30, 28, 25, 0.05)', dark: '#24211D' }, 'cardBackground');
+  const heroSurface = useHeroSurface();
+  const successColour = useThemeColour({}, 'success');
+  const dangerColour = useThemeColour({}, 'danger');
+  // const categoryBreakdown = monthTransactions.filter(transaction => transaction.type === 'Expense').reduce<Promise<Record<string, number>>>(async (accumulator, transaction) => {
+  //     const categoryName = await transactionService.getTransactionCategory(transaction.category_id) || 'Uncategorized';
+  //     accumulator[categoryName.name] = (accumulator[categoryName.] || 0) + Math.abs(transaction.amount);
+  //     return accumulator;
+  //   }, {});
+  // const sortedCategoryBreakdown = Object.entries(categoryBreakdown).sort(([, amountA], [, amountB]) => amountB - amountA);
 
-  //Refresh the transactions.
+  /** Category id to name, so the breakdown can be labelled. */
+  useEffect(() => {
+    let cancelled = false;
+
+    void recurringTransactionService.generateDueTransactions()
+      .then((generated) => {
+        if (!cancelled && generated > 0) {
+          void fetchTransactions();
+        }
+      })
+      .catch((error) => console.error('BudgetMonthScreen.recurringCatchUp', error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTransactions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    transactionService.getTransactionCategories()
+      .then((categories) => {
+        if (cancelled) return;
+        const map: Record<string, string> = {};
+        categories.forEach((category: { id: number; name: string }) => {
+          map[String(category.id)] = category.name;
+        });
+        setCategoryNames(map);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Refreshes monthly transactions data from the source. */
   const refreshBudgetData = useCallback(async () => {
     await fetchTransactions();
   }, [fetchTransactions]);
 
-  //Handle Refresh.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshBudgetData();
+    }, [refreshBudgetData])
+  );
+
+  /** Handles pull-to-refresh for the transactions overview. */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -48,7 +100,6 @@ export default function BudgetMonthScreen() {
     }
   }, [refreshBudgetData]);
 
-  //Get the transactions and render the chart.
   useEffect(() => {
     if (transactions && user) {
       setMonthTransactions(transactions);
@@ -56,43 +107,50 @@ export default function BudgetMonthScreen() {
     }
   }, [transactions, user]);
 
-  //Gets Transaction information and calculates it so it can be shown in the chart.
+  /** Recalculates summary totals and bar heights for chart display. */
   const calculateChartData = (transactions: Transaction[]) => {
-    const income = transactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    const expenses = transactions.filter(t => t.type === 'Expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const income = transactions
+      .filter(t => t.type === 'Income')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const expenses = transactions
+      .filter(t => t.type === 'Expense')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
     setTotalIncome(income);
     setTotalExpenses(expenses);
-    const maxAmount = Math.max(income, expenses);
 
-    //set minimum amounts.
-    if (maxAmount === 0) {
-      setIncomeBarHeight(5);
-      setExpenseBarHeight(5);
-    } else {
-      //otherwise set it to the calculated percentage with a minimum of 10%.
-      const minHeight = 10;
-      setIncomeBarHeight(Math.max(minHeight, maxAmount === income ? 100 : (income / maxAmount) * 100) -2);
-      setExpenseBarHeight(Math.max(minHeight, maxAmount === expenses ? 100 : (expenses / maxAmount) * 100)-2);
-    }
   };
+
+  /** Expense totals per category, largest first, scaled for the bars. */
+  const categoryBreakdown = useMemo(() => {
+    const totals = new Map<string, number>();
+    monthTransactions
+      .filter((transaction) => transaction.type === 'Expense')
+      .forEach((transaction) => {
+        const name = categoryNames[String(transaction.category_id)] || 'Uncategorised';
+        totals.set(name, (totals.get(name) ?? 0) + Math.abs(transaction.amount));
+      });
+
+    const max = Math.max(...totals.values(), 1);
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, amount]) => ({ name, amount, share: Math.round((amount / max) * 100) }));
+  }, [categoryNames, monthTransactions]);
 
   const getMonthName = (monthNumber: number): string => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     return months[monthNumber - 1] || 'Unknown';
   };
 
-  //format currency based on user settings, which is determined by locale.
   const formatCurrency = (amount: number): string => {
     return transactionService.formatCurrency(amount, preferredCurrency);
   };
 
-  //Handle the add transaction button press, takes the user to the add transaction page with the type, month and year as parameters.
   const addTransaction = (type: 'income' | 'expense') => {
     router.push(`/budget/add?type=${type}&month=${month}&year=${year}`);
   };
 
-  //Shows the loading spinner while transactions are being fetched.
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -102,118 +160,135 @@ export default function BudgetMonthScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      <ThemedView style={styles.content} lightColour={backgroundColour} darkColour={backgroundColour}>
-        <ThemedView style={styles.header} lightColour={backgroundColour} darkColour={backgroundColour}>
-          <ThemedText type="title" style={styles.title}>
-            {getMonthName(month)} Overview
-          </ThemedText>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <HeroCard style={styles.hero}>
+        <Eyebrow tone="hero">{getMonthName(month)}</Eyebrow>
+        <ThemedText type="display" style={[styles.heroBalance, { color: heroSurface.text }]}>
+          {formatCurrency(totalIncome - totalExpenses)}
+        </ThemedText>
+        <ThemedText style={[styles.heroCaption, { color: heroSurface.textSecondary }]}>
+          Left to spend this month
+        </ThemedText>
 
-          <ThemedView style={styles.actionButtons} lightColour={backgroundColour} darkColour={backgroundColour}>
-            <Button title="Add Income" variant="success" size="small" onPress={() => addTransaction('income')} style={styles.actionButton} />
-            <Button title="Add Expense" variant="danger" size="small" onPress={() => addTransaction('expense')} style={styles.actionButton} />
-          </ThemedView>
+        <ThemedView style={styles.heroSplit} lightColour="transparent" darkColour="transparent">
+          <ThemedView
+            style={[styles.heroSplitSegment, { backgroundColor: successColour, flexGrow: Math.max(totalIncome, 1) }]}
+            lightColour="transparent"
+            darkColour="transparent"
+          />
+          <ThemedView
+            style={[styles.heroSplitSegment, { backgroundColor: dangerColour, flexGrow: Math.max(totalExpenses, 1) }]}
+            lightColour="transparent"
+            darkColour="transparent"
+          />
         </ThemedView>
 
-        <ThemedView style={styles.chartCard} lightColour={backgroundColour} darkColour={backgroundColour}>
-          <ThemedView style={styles.chartContainer} lightColour={backgroundColour} darkColour={backgroundColour}>
-            <ThemedView style={[styles.yAxisText, { top: -5 }]} lightColour={backgroundColour} darkColour={backgroundColour}><ThemedText style={[styles.yAxisLabel, {color:textColour}]}>{totalIncome > totalExpenses ? formatCurrency(totalIncome) : formatCurrency(totalExpenses)}</ThemedText></ThemedView>
-            <ThemedView style={[styles.yAxisText, { bottom: -5 }]} lightColour={backgroundColour} darkColour={backgroundColour}><ThemedText style={[styles.yAxisLabel, {color: textColour}]}>{formatCurrency(0)}</ThemedText></ThemedView>
-            <ThemedView style={styles.chartArea}>
-              <ThemedView style={styles.yAxis} />
-              <ThemedView style={styles.xAxis} />
-              <ThemedView style={[styles.bar, styles.incomeBar, { height: `${incomeBarHeight}%` }]}>
-                <ThemedText style={styles.barValue}>
-                  {formatCurrency(totalIncome)}
-                </ThemedText>
-                <ThemedText style={styles.barLabel}>Income</ThemedText>
-              </ThemedView>
-
-              <ThemedView style={[styles.bar, styles.expenseBar, { height: `${expenseBarHeight}%` }]}>
-                <ThemedText style={styles.barValue}>
-                  {formatCurrency(totalExpenses)}
-                </ThemedText>
-                <ThemedText style={styles.barLabel}>Expenses</ThemedText>
-              </ThemedView>
-            </ThemedView>
+        <ThemedView style={styles.heroLegend} lightColour="transparent" darkColour="transparent">
+          <ThemedView style={styles.heroLegendEntry} lightColour="transparent" darkColour="transparent">
+            <ThemedView style={[styles.legendDot, { backgroundColor: successColour }]} lightColour="transparent" darkColour="transparent" />
+            <ThemedText style={[styles.heroLegendText, { color: heroSurface.textSecondary }]}>
+              In {formatCurrency(totalIncome)}
+            </ThemedText>
+          </ThemedView>
+          <ThemedView style={styles.heroLegendEntry} lightColour="transparent" darkColour="transparent">
+            <ThemedView style={[styles.legendDot, { backgroundColor: dangerColour }]} lightColour="transparent" darkColour="transparent" />
+            <ThemedText style={[styles.heroLegendText, { color: heroSurface.textSecondary }]}>
+              Out {formatCurrency(totalExpenses)}
+            </ThemedText>
           </ThemedView>
         </ThemedView>
+      </HeroCard>
 
-        <Card style={styles.breakdownCard}>
-          <ThemedText type="subtitle" style={styles.breakdownTitle}>
-            Budget Breakdown
-          </ThemedText>
-          <ThemedText style={styles.breakdownIntro}>
-            Expense totals by category compared with this month&apos;s income.
-          </ThemedText>
-
-          <ThemedView style={styles.breakdownSummary}>
-            <ThemedView style={[styles.breakdownSummaryItem, { backgroundColor: summaryBackgroundColour }]}>
-              <ThemedText style={styles.breakdownSummaryLabel}>Income</ThemedText>
-              <ThemedText style={[styles.breakdownSummaryValue, { color: '#22C55E' }]}>
-                {formatCurrency(totalIncome)}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView style={[styles.breakdownSummaryItem, { backgroundColor: summaryBackgroundColour }]}>
-              <ThemedText style={styles.breakdownSummaryLabel}>Expenses</ThemedText>
-              <ThemedText style={[styles.breakdownSummaryValue, { color: '#EF4444' }]}>
-                {formatCurrency(totalExpenses)}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-        </Card>
-
-        {monthTransactions.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <ThemedText type="subtitle" style={styles.emptyTitle}>
-              No transactions for {getMonthName(month)}
-            </ThemedText>
-            <ThemedText style={styles.emptyText}>
-              Add your first transaction to start tracking this month&lsquo;s finances.
-            </ThemedText>
-            <ThemedView style={styles.emptyActions}>
-              <Button title="Add Income" variant="success" onPress={() => addTransaction('income')} style={styles.emptyButton} />
-              <Button title="Add Expense" variant="danger" onPress={() => addTransaction('expense')} style={styles.emptyButton} />
-            </ThemedView>
-          </Card>
-        ) : (
-          /* Transaction List */
-          <Card style={styles.transactionsCard}>
-            <ThemedText type="subtitle" style={styles.transactionsTitle}>
-              Transactions ({monthTransactions.length})
-            </ThemedText>
-
-            {monthTransactions.map((transaction) => (
-              <TouchableOpacity key={transaction.id} style={styles.transactionItem} onPress={() => router.push(`/budget/edit/${transaction.id}`)}>
-                <ThemedView style={styles.transactionContent}>
-                  <ThemedView style={styles.transactionMain}>
-                    <ThemedText type="defaultSemiBold" style={styles.transactionTitle}>
-                      {transaction.title}
-                    </ThemedText>
-                    {transaction.description && (
-                      <ThemedText style={styles.transactionDescription}>
-                        {transaction.description}
-                      </ThemedText>
-                    )}
-                  </ThemedView>
-
-                  <ThemedView style={styles.transactionMeta}>
-                    <ThemedText
-                      style={[styles.transactionAmount, { color: transaction.type === 'Income' ? '#22C55E' : '#EF4444' }]}>
-                      {transaction.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
-                    </ThemedText>
-                    {transaction.due_date && (
-                      <ThemedText style={styles.transactionDate}>
-                        {new Date(transaction.due_date).toLocaleDateString()}
-                      </ThemedText>
-                    )}
-                  </ThemedView>
-                </ThemedView>
-              </TouchableOpacity>
-            ))}
-          </Card>
-        )}
+      <ThemedView style={styles.actionButtons} lightColour={backgroundColour} darkColour={backgroundColour}>
+        <Button analyticsId="app_budget_index_add_income_2" title="Add Income" variant="success" size="small" onPress={() => addTransaction('income')} style={styles.actionButton} />
+        <Button analyticsId="app_budget_index_add_expense_2" title="Add Expense" variant="danger" size="small" onPress={() => addTransaction('expense')} style={styles.actionButton} />
       </ThemedView>
+
+      <SectionHeading eyebrow="Where it goes" title="By category" style={styles.sectionHeading} />
+
+      <Card style={styles.categoryCard} bodyStyle={styles.categoryCardBody}>
+        {categoryBreakdown.length === 0 ? (
+          <ThemedText style={styles.emptyText}>
+            No expense categories recorded for {getMonthName(month)} yet.
+          </ThemedText>
+        ) : (
+          categoryBreakdown.map((entry) => (
+            <ThemedView key={entry.name} style={styles.categoryRow} lightColour="transparent" darkColour="transparent">
+              <ThemedView style={styles.categoryCopy} lightColour="transparent" darkColour="transparent">
+                <ThemedText type="defaultSemiBold">{entry.name}</ThemedText>
+                <ThemedText style={styles.categoryAmount}>{formatCurrency(entry.amount)}</ThemedText>
+              </ThemedView>
+              <ThemedView style={[styles.categoryTrack, { backgroundColor: summaryBackgroundColour }]} lightColour="transparent" darkColour="transparent">
+                <ThemedView
+                  style={[styles.categoryFill, { backgroundColor: dangerColour, width: `${entry.share}%` }]}
+                  lightColour="transparent"
+                  darkColour="transparent"
+                />
+              </ThemedView>
+            </ThemedView>
+          ))
+        )}
+      </Card>
+
+      <SectionHeading eyebrow="Recent" title={monthTransactions.length === 1 ? '1 movement' : `${monthTransactions.length} movements`}
+        style={styles.sectionHeading} />
+
+      {monthTransactions.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <ThemedText type="subtitle" style={styles.emptyTitle}>
+            Nothing yet for {getMonthName(month)}
+          </ThemedText>
+          <ThemedText style={styles.emptyText}>
+            Add your first transaction to start tracking this month.
+          </ThemedText>
+        </Card>
+      ) : (
+        <ThemedView style={styles.entryList} lightColour={backgroundColour} darkColour={backgroundColour}>
+          {monthTransactions.map((transaction) => {
+            const isIncome = transaction.type === 'Income';
+            return (
+              <TouchableOpacity
+                analyticsId="app_budget_index_transaction_item"
+                analyticsControlType="list_item"
+                key={transaction.id}
+                onPress={() => router.push(`/budget/edit/${transaction.id}`)}
+              >
+                <ListRow>
+                  <ThemedView
+                    style={[styles.entryMark, { backgroundColor: isIncome ? `${successColour}22` : `${dangerColour}22` }]}
+                    lightColour="transparent"
+                    darkColour="transparent"
+                  >
+                    <ThemedText style={[styles.entryMarkText, { color: isIncome ? successColour : dangerColour }]}>
+                      {isIncome ? '\u2191' : '\u2193'}
+                    </ThemedText>
+                  </ThemedView>
+
+                  <ThemedView style={styles.entryCopy} lightColour="transparent" darkColour="transparent">
+                    <ThemedText type="defaultSemiBold" numberOfLines={1}>{transaction.title}</ThemedText>
+                    {transaction.description ? (
+                      <ThemedText style={styles.entryMeta} numberOfLines={1}>{transaction.description}</ThemedText>
+                    ) : null}
+                  </ThemedView>
+
+                  <ThemedView style={styles.entryAmountWrap} lightColour="transparent" darkColour="transparent">
+                    <ThemedText style={[styles.entryAmount, { color: isIncome ? successColour : dangerColour }]}>
+                      {isIncome ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
+                    </ThemedText>
+                    {transaction.due_date ? (
+                      <ThemedText style={styles.entryDate}>
+                        {new Date(transaction.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </ThemedText>
+                    ) : null}
+                  </ThemedView>
+                </ListRow>
+              </TouchableOpacity>
+            );
+          })}
+        </ThemedView>
+      )}
     </ScrollView>
   );
 }
@@ -221,192 +296,139 @@ export default function BudgetMonthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+  },
+  content: {
+    width: Platform.OS === 'web' ? '70%' : '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 32,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: {
-    flex: 1,
-    padding: 16,
+  hero: {
+    marginBottom: 14,
   },
-  header: {
-    marginBottom: 24,
+  heroBalance: {
+    marginTop: 10,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  heroCaption: {
+    marginTop: 4,
+    fontSize: 13,
+  },
+  heroSplit: {
+    flexDirection: 'row',
+    gap: 4,
+    height: 7,
+    marginTop: 16,
+  },
+  heroSplitSegment: {
+    borderRadius: 999,
+  },
+  heroLegend: {
+    flexDirection: 'row',
+    gap: 18,
+    marginTop: 12,
+  },
+  heroLegendEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+  },
+  heroLegendText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 9,
   },
   actionButton: {
     flex: 1,
   },
-  chartCard: {
-    marginBottom: 16,
-    padding: 5,
+  sectionHeading: {
+    marginTop: 26,
   },
-  breakdownCard: {
-    padding: 16,
+  categoryCard: {
+    marginBottom: 0,
   },
-  breakdownTitle: {
-    marginBottom: 6,
+  categoryCardBody: {
+    gap: 13,
   },
-  breakdownIntro: {
-    opacity: 0.75,
-    marginBottom: 12,
+  categoryRow: {
+    gap: 6,
   },
-  breakdownSummary: {
+  categoryCopy: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  breakdownSummaryItem: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-  },
-  breakdownSummaryLabel: {
-    fontSize: 13,
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  breakdownSummaryValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  chartContainer: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chartArea: {
-    width: '70%',
-    height: '100%',
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-  },
-  yAxis: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: '#E5E7EB',//change to dynamic based on theme
-  },
-  xAxis: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: '#E5E7EB',
-  },
-  bar: {
-    width: 70,
-    minHeight: 5,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 4,
-    borderRadius: 5,
-  },
-  incomeBar: {
-    backgroundColor: '#22C55E',
-  },
-  expenseBar: {
-    backgroundColor: '#EF4444',
-  },
-  barValue: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  barLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    position: 'absolute',
-    bottom: -22,
-    textAlign: 'center',
-  },
-  yAxisText: {
-    position: 'absolute',
-    left: -15,
-  },
-  yAxisLabel: {
-    fontSize: 12,
-    color: '#101113',
-    textAlign: 'right',
-    width: 55,
-  },
-  transactionsCard: {
-    padding: 16,
-  },
-  transactionsTitle: {
-    fontSize: 18,
-    marginBottom: 16,
-  },
-  transactionItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  transactionContent: {
-    flexDirection: 'row',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
+  },
+  categoryAmount: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  categoryTrack: {
+    height: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  categoryFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  entryList: {
+    gap: 8,
+  },
+  entryMark: {
+    width: 26,
+    height: 26,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
   },
-  transactionMain: {
+  entryMarkText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  entryCopy: {
     flex: 1,
+    gap: 2,
   },
-  transactionTitle: {
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  transactionDescription: {
-    fontSize: 14,
+  entryMeta: {
+    fontSize: 12,
     opacity: 0.7,
   },
-  transactionMeta: {
+  entryAmountWrap: {
     alignItems: 'flex-end',
+    gap: 2,
   },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+  entryAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0,
   },
-  transactionDate: {
-    fontSize: 12,
+  entryDate: {
+    fontSize: 11,
     opacity: 0.7,
   },
   emptyCard: {
-    padding: 15,
-    alignItems: 'center',
+    marginBottom: 0,
   },
   emptyTitle: {
-    fontSize: 20,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 6,
   },
   emptyText: {
-    fontSize: 16,
-    opacity: 0.7,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
-  },
-  emptyActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  emptyButton: {
-    minWidth: 120,
+    fontSize: 13,
+    opacity: 0.75,
+    lineHeight: 19,
   },
 });

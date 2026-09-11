@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { authService } from '@/services/authService';
+import { authService, SocialAuthProvider } from '@/services/authService';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { LoginRequest, RegisterRequest } from '@/types/user';
 
@@ -18,8 +18,8 @@ export const useAuth = () => {
     mutationFn: (data: RegisterRequest) => authService.completeAccount(data),
   });
 
-  const googleOAuthMutation = useMutation({
-    mutationFn: () => authService.startGoogleOAuth(),
+  const socialOAuthMutation = useMutation({
+    mutationFn: (provider: SocialAuthProvider) => authService.startSocialOAuth(provider),
   });
 
   /** Signs the user in and immediately asks the auth provider to hydrate the session. */
@@ -40,12 +40,17 @@ export const useAuth = () => {
   /** Completes an already-created auth account and hydrates the resulting profile. */
   const completeAccount = async (data: RegisterRequest) => {
     await completeAccountMutation.mutateAsync(data);
-    await refreshAuth();
+    return refreshAuth();
+  };
+
+  /** Starts a social sign-in flow and returns the URL to open. */
+  const startSocialSignIn = async (provider: SocialAuthProvider) => {
+    return socialOAuthMutation.mutateAsync(provider);
   };
 
   /** Starts the Google sign-in flow and returns the URL to open. */
   const startGoogleSignIn = async () => {
-    return googleOAuthMutation.mutateAsync();
+    return startSocialSignIn('google');
   };
 
   return {
@@ -56,6 +61,7 @@ export const useAuth = () => {
     login,
     register,
     completeAccount,
+    startSocialSignIn,
     startGoogleSignIn,
     logout,
     refreshAuth,
@@ -63,12 +69,14 @@ export const useAuth = () => {
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
     isCompletingAccount: completeAccountMutation.isPending,
-    isStartingGoogleSignIn: googleOAuthMutation.isPending,
+    isStartingSocialSignIn: socialOAuthMutation.isPending,
+    isStartingGoogleSignIn: socialOAuthMutation.isPending,
 
     loginError: loginMutation.error,
     registerError: registerMutation.error,
     completeAccountError: completeAccountMutation.error,
-    googleOAuthError: googleOAuthMutation.error,
+    socialOAuthError: socialOAuthMutation.error,
+    googleOAuthError: socialOAuthMutation.error,
   };
 };
 

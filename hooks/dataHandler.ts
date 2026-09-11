@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/supabase';
 import * as Clipboard from 'expo-clipboard';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 export const SUPPORTED_REGIONAL_COUNTRIES = ['GB', 'IN', 'CN', 'US', 'ID', 'PK', 'NG', 'BR', 'BD', 'RU', 'MX', 'CA', 'FR', 'ES', 'DE', 'PT', 'IE', 'AU', 'IT', 'NL', 'JP'] as const;
 export const MY_NEWS_SUPPORTED_COUNTRIES = ['GB'] as const;
@@ -23,8 +23,44 @@ export function copyToClipboard(text: string) {
     Clipboard.setStringAsync(text);
 }
 
-export function showAlert(title: string, message: string, actions: { text: string, onPress: (() => void) | undefined, style: "default" | "cancel" | "destructive" | undefined }[] = [{ text: 'OK', onPress: undefined, style: undefined }]) {
-    Alert.alert(title, message, actions);
+type AlertAction = {
+    text: string;
+    onPress?: () => void;
+    style?: "default" | "cancel" | "destructive";
+};
+
+/** Shows a native alert, or a browser alert/confirm that still runs button callbacks on web. */
+export function showAlert(
+    title: string,
+    message: string,
+    actions: AlertAction[] = [{ text: 'OK', onPress: undefined, style: undefined }]
+) {
+    if (Platform.OS !== 'web') {
+        Alert.alert(title, message, actions);
+        return;
+    }
+
+    const browserWindow = typeof window !== 'undefined' ? window : null;
+    if (!browserWindow) return;
+
+    const body = `${title}\n${message}`;
+    const cancelAction = actions.find(action => action.style === 'cancel');
+    const confirmAction =
+        actions.find(action => action.style === 'destructive') ??
+        actions.find(action => action.style !== 'cancel') ??
+        actions[0];
+
+    if (actions.length <= 1 || !cancelAction) {
+        browserWindow.alert(body);
+        confirmAction?.onPress?.();
+        return;
+    }
+
+    if (browserWindow.confirm(body)) {
+        confirmAction?.onPress?.();
+    } else {
+        cancelAction.onPress?.();
+    }
 }
 
 export function formatDate(dateStr: string) {
@@ -49,9 +85,6 @@ function getCountryCodeFromLocaleTag(localeTag: string | null | undefined): stri
     return countryCode ? countryCode.toUpperCase() : null;
 }
 
-/**
- * Attempts to resolve the current country code from the device locale.
- */
 export function getCurrentCountryCodeFromLocale(): string | null {
     const localeCandidates: string[] = [];
     const resolvedOptions = Intl.DateTimeFormat().resolvedOptions();
@@ -72,9 +105,6 @@ export function getCurrentCountryCodeFromLocale(): string | null {
         return null;
 }
 
-/**
- * Returns true when country-specific content is available for the current device country.
- */
 export function isRegionalContentAvailable(countryCode: string | null): boolean {
     return countryCode
         ? SUPPORTED_REGIONAL_COUNTRIES.includes(countryCode as SupportedRegionalCountryCode)

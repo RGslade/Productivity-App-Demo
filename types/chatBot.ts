@@ -43,6 +43,7 @@ export interface LifeNestUsageEvent {
   model: string;
   tokensUsed: number;
   inputCharacterCount: number;
+  feature?: 'chat_message' | 'checklist_enhancement';
 }
 
 export interface LifeNestMonthlyUsageSummary {

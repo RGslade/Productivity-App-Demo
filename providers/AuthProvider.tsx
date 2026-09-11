@@ -1,14 +1,14 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useSegments } from 'expo-router';
-import { getSession, supabase } from '@/lib/supabase';
+import { getSession, supabase, validateSession } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { UserInfo } from '@/types/user';
 import databaseService from '@/services/databaseService';
 import { settingsService } from '@/services/settingsService';
 import { ThemedView } from '@/components/ThemedView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { Linking, PermissionsAndroid, Platform } from 'react-native';
+import { AppStateStatus, Linking, PermissionsAndroid, Platform } from 'react-native';
 import {
   configureNotifications,
   clearAllNotifications,
@@ -18,9 +18,12 @@ import {
   unregisterBackgroundNotificationTask,
 } from '@/hooks/NotificationHandler';
 import { todoNotificationService } from '@/services/todoNotificationService';
-import { userService } from '@/services/userService';
+import { addCrashBreadcrumb } from '@/services/crashLogger';
+import { isAuthenticationRequiredError, userService } from '@/services/userService';
 import { authService } from '@/services/authService';
-import { BackendTables } from '@/constants/backendResources';
+import { recurringTransactionService } from '@/services/recurringTransactionService';
+import { examService } from '@/services/examService';
+import { useAppState } from '@/hooks/AppStateHandler';
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +33,7 @@ interface AuthContextType {
   refreshAuth: () => Promise<boolean>;
 }
 
-/** Masks an auth user's email address before logging provider diagnostics. */
+/** Masks an auth user's email address before writing auth diagnostics. */
 function maskEmailForLog(value?: string | null): string | null {
   if (!value) return null;
 
@@ -41,6 +44,22 @@ function maskEmailForLog(value?: string | null): string | null {
 
   return domain ? `${maskedLocal}@${domain}` : maskedLocal;
 }
+
+/** Formats a Supabase auth provider id for account-completion copy. */
+function formatAuthProviderName(provider?: string | null): string {
+  switch (provider) {
+    case 'google':
+      return 'Google';
+    case 'apple':
+      return 'Apple';
+    case 'spotify':
+      return 'Spotify';
+    default:
+      return 'third-party login';
+  }
+}
+
+type HydrateResult = 'authenticated' | 'incomplete_profile' | 'signed_out';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -57,12 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const segments = useSegments();
   const queryClient = useQueryClient();
+  const refreshAuthPromiseRef = useRef<Promise<boolean> | null>(null);
+  const notificationSyncKeyRef = useRef<string | null>(null);
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> =>
-    Promise.race([
-      promise,
-      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
-    ]);
   const { data: accountSettings } = useQuery({
     queryKey: ['settings', 'account'],
     queryFn: () => settingsService.getAccountSettings(),
@@ -70,16 +86,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60 * 1000,
   });
 
+
   useEffect(() => {
     const syncNotifications = async () => {
       try {
         if (!isAuthenticated || !userInfo) {
+          if (notificationSyncKeyRef.current === 'signed-out') return;
+          notificationSyncKeyRef.current = 'signed-out';
           await unregisterBackgroundNotificationTask();
           await clearAllNotifications();
           return;
         }
 
         if (accountSettings?.notifications_enabled === false) {
+          const disabledKey = `${userInfo.id}:disabled`;
+          if (notificationSyncKeyRef.current === disabledKey) return;
+          notificationSyncKeyRef.current = disabledKey;
           await unregisterBackgroundNotificationTask();
           await clearAllNotifications();
           return;
@@ -88,6 +110,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!accountSettings) {
           return;
         }
+
+        const enabledKey = `${userInfo.id}:enabled`;
+        if (notificationSyncKeyRef.current === enabledKey) return;
+        notificationSyncKeyRef.current = enabledKey;
+
+        void recurringTransactionService.generateDueTransactions().catch((error) => {
+          if (!isAuthenticationRequiredError(error)) console.error('AuthProvider.recurringCatchUp', error);
+        });
+        void examService.checkAndNotifyDueReminders().catch((error) => {
+          if (!isAuthenticationRequiredError(error)) console.error('AuthProvider.examReminders', error);
+        });
 
         await configureNotifications();
         await registerForPushNotifications();
@@ -98,10 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             userInfo.id,
             username
           );
+          await examService.checkAndNotifyDueReminders();
+          await recurringTransactionService.generateDueTransactions();
         });
         await registerBackgroundNotificationTask(900);
       } catch (error) {
-        console.error('Error syncing notifications:', error);
+        notificationSyncKeyRef.current = null;
+        if (!isAuthenticationRequiredError(error)) console.error('Error syncing notifications:', error);
       }
     };
 
@@ -115,13 +151,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const permissionEntries = Object.entries(PermissionsAndroid.PERMISSIONS);
-        const permissionStatuses = await Promise.all(
-          permissionEntries.map(async ([permissionName, permissionValue]) => {
-            const granted = await PermissionsAndroid.check(permissionValue);
-            return { name: permissionName, value: permissionValue, granted };
+        await Promise.all(
+          permissionEntries.map(async ([name, value]) => {
+            const granted = await PermissionsAndroid.check(value);
+            return { name, value, granted };
           })
         );
-        void permissionStatuses;
       } catch (error) {
         console.error('[Permissions] Error checking permissions:', error);
       }
@@ -131,12 +166,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /** CENTRAL session validation */
-  const hydrateUser = useCallback(async (session: Session | null, source: 'bootstrap' | 'auth_event' | 'refresh' = 'auth_event') => {
+  const hydrateUser = useCallback(async (session: Session | null, source: 'bootstrap' | 'auth_event' | 'refresh' = 'auth_event'): Promise<HydrateResult> => {
     if (!session?.user) {
+      addCrashBreadcrumb('auth_hydrate_no_session');
       setUser(null);
       setUserInfo(null);
       setIsAuthenticated(false);
-      queryClient.removeQueries({ queryKey: ['auth', 'currentUser'] });
+      userService.clearCachedUserProfile();
+      queryClient.clear();
       // Stop background notifications when user logs out
       try {
         await unregisterBackgroundNotificationTask();
@@ -144,20 +181,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('[Auth][Provider] Error unregistering background task on logout', error);
       }
-      return false;
+      return 'signed_out';
     }
 
     try {
       const maskedEmail = maskEmailForLog(session.user.email);
+      addCrashBreadcrumb('auth_hydrate_started', {
+        authUserId: session.user.id,
+        email: maskedEmail,
+      });
 
-      const { data: profile } = await databaseService.getSingleGlobal<UserInfo>(BackendTables.userProfiles, 'auth_user_id', session.user?.id);
+      const { data: profile } = await databaseService.getSingleGlobal<UserInfo>('Users_Info', 'auth_user_id', session.user?.id);
 
-      // 🔑 PROFILE NOT READY YET (REGISTER FLOW)
+      // ðŸ”‘ PROFILE NOT READY YET (REGISTER FLOW)
       if (!userService.isProfileComplete(profile)) {
         console.warn('[Auth][Provider] Auth user profile is missing or incomplete', {
           authUserId: session.user.id,
           email: maskedEmail,
           source,
+        });
+        addCrashBreadcrumb('auth_hydrate_profile_missing', {
+          authUserId: session.user.id,
+          email: maskedEmail,
         });
         if (source === 'bootstrap') {
           console.warn('[Auth][Provider] Clearing persisted incomplete auth session on bootstrap', {
@@ -168,7 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setUserInfo(null);
           setIsAuthenticated(false);
-          return false;
+          userService.clearCachedUserProfile();
+          return 'incomplete_profile';
         }
         setUser(session.user);
         setUserInfo(null);
@@ -178,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           pathname: '/(auth)/register',
           params: {
             isCompleting: 'true',
-            authProvider: session.user.app_metadata?.provider === 'google' ? 'Google' : 'third-party login',
+            authProvider: formatAuthProviderName(session.user.app_metadata?.provider),
             prefillEmail: prefill?.email || session.user.email || '',
             prefillFirstName: prefill?.first_name || '',
             prefillMiddleNames: prefill?.middle_names || '',
@@ -187,113 +233,181 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             prefillJobStatus: prefill?.job_status || '',
           },
         });
-        return false;
-      }
-
-      const timeoutMinutes = await withTimeout<number | null>(
-        settingsService.getSessionTimeout().catch((error) => {
-          console.error('[Auth][Provider] Failed to load session timeout during hydration', {
-            authUserId: session.user.id,
-            profileId: profile.id,
-            message: error instanceof Error ? error.message : String(error),
-          });
-          return null;
-        }),
-        2500,
-        null
-      );
-      const lastSignIn = new Date(session.user.last_sign_in_at ?? '');
-      const diffMinutes =
-        (Date.now() - lastSignIn.getTime()) / (1000 * 60);
-
-      if (typeof timeoutMinutes === 'number' && diffMinutes > timeoutMinutes) {
-        console.warn('[Auth][Provider] Session expired by account timeout', {
-          authUserId: session.user.id,
-          profileId: profile.id,
-          timeoutMinutes,
-          diffMinutes,
-        });
-        await supabase.auth.signOut();
-        return false;
+        return 'incomplete_profile';
       }
 
       profile.email_address = session.user.email || '';
       setUser(session.user);
       setUserInfo(profile);
       setIsAuthenticated(true);
+      userService.setCachedUserProfile(profile);
       queryClient.setQueryData(['auth', 'currentUser'], profile);
-      return true;
-    } catch (hydrationError) {
-      console.error('[Auth][Provider] Hydration failed and session will be signed out', {
+      addCrashBreadcrumb('auth_hydrate_success', {
+        authUserId: session.user.id,
+        profileId: profile.id,
+        email: maskedEmail,
+      });
+      return 'authenticated';
+    } catch (e) {
+      console.error('[Auth][Provider] Hydration failed', {
         authUserId: session.user.id,
         email: maskEmailForLog(session.user.email),
-        message: hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
+        message: e instanceof Error ? e.message : String(e),
       });
+      addCrashBreadcrumb('auth_hydrate_error', {
+        authUserId: session.user.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      if (source === 'bootstrap') {
+        // Keep the restored session available while bootstrap performs its one refresh retry.
+        setUser(session.user);
+        setIsAuthenticated(true);
+        return 'signed_out';
+      }
       await supabase.auth.signOut();
-      return false;
+      return 'signed_out';
     }
   }, [queryClient]);
 
   const refreshAuth = useCallback(async (): Promise<boolean> => {
-    const { data } = await getSession();
-    const session = data.session;
-
-    if (!session?.user) {
-      await hydrateUser(null, 'refresh');
-      console.warn('[Auth][Provider] Manual auth refresh found no session');
-      return false;
+    if (refreshAuthPromiseRef.current) {
+      return refreshAuthPromiseRef.current;
     }
 
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const isHydrated = await hydrateUser(session, 'refresh');
-      if (isHydrated) {
-        return true;
+    const refreshPromise = (async () => {
+      const { data } = await getSession();
+      const session = data.session;
+
+      if (!session?.user) {
+        await hydrateUser(null, 'refresh');
+        console.warn('[Auth][Provider] Manual auth refresh found no session');
+        return false;
       }
-      await wait(250);
-    }
-    console.warn('[Auth][Provider] Manual auth refresh ended without completed hydration', {
-      authUserId: session.user.id,
-      email: maskEmailForLog(session.user.email),
+
+      const validation = await validateSession();
+      if (validation.error || !validation.data.user) {
+        console.warn('[Auth][Provider] Supabase session validation failed during refresh', {
+          authUserId: session.user.id,
+          message: validation.error?.message || 'missing_user',
+        });
+        addCrashBreadcrumb('auth_session_validation_failed_refresh', { authUserId: session.user.id });
+        await supabase.auth.signOut();
+        await hydrateUser(null, 'refresh');
+        router.replace({ pathname: '/(auth)/login', params: { reason: 'session_expired' } });
+        return false;
+      }
+
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const hydrationResult = await hydrateUser({ ...session, user: validation.data.user }, 'refresh');
+        if (hydrationResult === 'authenticated') {
+          return true;
+        }
+        if (hydrationResult === 'incomplete_profile') {
+          return false;
+        }
+        await wait(250);
+      }
+      console.warn('[Auth][Provider] Manual auth refresh ended without completed hydration', {
+        authUserId: session.user.id,
+        email: maskEmailForLog(session.user.email),
+      });
+      return false;
+    })().finally(() => {
+      refreshAuthPromiseRef.current = null;
     });
-    return false;
+
+    refreshAuthPromiseRef.current = refreshPromise;
+    return refreshPromise;
   }, [hydrateUser]);
 
   /** Initial load + auth listener */
   useEffect(() => {
     let isMounted = true;
-    const bootstrapTimeout = setTimeout(() => {
-      if (isMounted) {
-        setIsReady(true);
-      }
-    }, 6000);
 
-    getSession().then(({ data }) => {
-      return hydrateUser(data.session, 'bootstrap');
-    }).finally(() => {
-      if (isMounted) {
-        setIsReady(true);
-      }
-      clearTimeout(bootstrapTimeout);
-    });
+    const bootstrapAuth = async () => {
+      try {
+        const { data } = await getSession();
+        const initialSession = data.session;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+        if (!initialSession?.user) {
+          if (isMounted) setIsReady(true);
+          await hydrateUser(null, 'bootstrap');
+          return;
+        }
+
+        // Validate the persisted session before rendering protected app state.
+        const validation = await validateSession();
+        if (validation.error || !validation.data.user) {
+          console.warn('[Auth][Provider] Supabase session validation failed during bootstrap', {
+            authUserId: initialSession.user.id,
+            message: validation.error?.message || 'missing_user',
+          });
+          addCrashBreadcrumb('auth_session_validation_failed_bootstrap', { authUserId: initialSession.user.id });
+          await supabase.auth.signOut();
+          await hydrateUser(null, 'bootstrap');
+          router.replace({ pathname: '/(auth)/login', params: { reason: 'session_expired' } });
+          return;
+        }
+
+        setUser(validation.data.user);
+        setIsAuthenticated(true);
+        if (isMounted) setIsReady(true);
+
+        const initialResult = await hydrateUser({ ...initialSession, user: validation.data.user }, 'bootstrap');
+
+        // A persisted session can be present but no longer hydrate cleanly after a browser refresh.
+        // Refresh it once before allowing the existing routing guard to send the user to login.
+        if (initialResult === 'signed_out') {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          if (refreshed.session) {
+            await hydrateUser(refreshed.session, 'refresh');
+          }
+        }
+      } catch (error) {
+        console.error('[Auth][Provider] Bootstrap authentication failed', error);
+        try {
+          const refreshed = await refreshAuth();
+          if (!refreshed) await hydrateUser(null, 'bootstrap');
+        } catch (refreshError) {
+          console.error('[Auth][Provider] Auth refresh retry failed', refreshError);
+          await hydrateUser(null, 'bootstrap');
+        }
+      } finally {
+        if (isMounted) setIsReady(true);
+      }
+    };
+
+    void bootstrapAuth();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (event === 'INITIAL_SESSION') return;
         void hydrateUser(session, 'auth_event');
       }
     );
 
     return () => {
       isMounted = false;
-      clearTimeout(bootstrapTimeout);
-      authListener.subscription.unsubscribe();
+      sub.subscription.unsubscribe();
     };
-  }, [hydrateUser]);
+  }, [hydrateUser, refreshAuth]);
+
+  /** Revalidates Supabase Auth after the app returns to the foreground. */
+  const handleAppState = useCallback((state: AppStateStatus) => {
+    if (state !== 'active' || !isAuthenticated) return;
+    void refreshAuth().catch((error) => {
+      console.error('[Auth][Provider] Foreground session validation failed', error);
+    });
+  }, [isAuthenticated, refreshAuth]);
+
+  useAppState(handleAppState, 'auth-session-validation', ['active']);
 
 
-  /** Handles OAuth redirects opened from provider sign-in. */
+  /** Handles OAuth redirects opened from Supabase provider sign-in. */
   useEffect(() => {
     const handleOAuthUrl = async (url: string | null) => {
       if (!url || !url.includes('auth/callback')) return;
+      if (!url.includes('code=') && !url.includes('error=')) return;
 
       try {
         await authService.completeOAuthRedirect(url);
@@ -317,12 +431,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const authRoute = segments.at(1);
+    const routeSegments = segments as string[];
+    const inAuthGroup = routeSegments[0] === '(auth)';
+    const authRoute = routeSegments.at(1);
+    const inOAuthCallback = routeSegments[0] === 'auth' && authRoute === 'callback';
+    const inLegalRoute = routeSegments[0] === 'legal';
     const allowAuthenticatedAuthRoute = inAuthGroup && authRoute === 'change-password';
 
-    if (!isAuthenticated && !inAuthGroup) {
+    const inPublicGroup = Platform.OS === 'web' && routeSegments[0] === '(public)';
+    const isPublicHome = routeSegments.length === 0;
+
+    if (!isAuthenticated && !inAuthGroup && !inOAuthCallback && !inLegalRoute && !inPublicGroup && !isPublicHome) {
       router.replace('/(auth)/login');
+    }
+
+    if (isAuthenticated && inOAuthCallback) {
+      router.replace('/(tabs)');
     }
 
     if (isAuthenticated && inAuthGroup && !allowAuthenticatedAuthRoute) {
@@ -336,6 +460,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof dismissAll === 'function') {
       dismissAll();
     }
+    userService.clearCachedUserProfile();
     await supabase.auth.signOut();
     router.replace('/(auth)/login');
   };
@@ -347,6 +472,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       </ThemedView>
     );
   }
+
 
   return (
     <AuthContext.Provider

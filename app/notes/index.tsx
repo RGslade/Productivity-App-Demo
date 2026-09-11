@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Platform } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
@@ -41,9 +42,8 @@ export default function NotesScreen() {
 
   useEffect(() => {
     if (!isFocused) return;
-    fetchNotes();
     setTempNotes(tempNotesStore.getAll());
-  }, [fetchNotes, isFocused]);
+  }, [isFocused]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -57,9 +57,7 @@ export default function NotesScreen() {
 
   const handleDelete = (note: NotesListItem) => {
     const label = note.isTemporary ? 'Delete Temporary Note' : 'Delete Note';
-    const message = note.isTemporary
-      ? 'This temporary note will be removed and cannot be recovered.'
-      : 'This note will be deleted and cannot be recovered.';
+    const message = note.isTemporary ? 'This temporary note will be removed and cannot be recovered.' : 'This note will be deleted and cannot be recovered.';
     showAlert(label, message, [
       { text: 'Cancel', onPress: undefined, style: 'cancel' },
       {
@@ -75,6 +73,7 @@ export default function NotesScreen() {
             await deleteNote(note.id as number);
           } catch (error) {
             console.error('Failed to delete note:', error);
+            showAlert('Delete Failed', 'Could not delete this note. Please try again.');
           }
         },
       },
@@ -124,11 +123,12 @@ export default function NotesScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
+      <ThemedView style={[styles.content, { backgroundColor }]}>
       <View style={styles.header}>
         <ThemedText type="title" style={styles.title}>
           My Notes
         </ThemedText>
-        <Button title="Add Note" onPress={() => router.push('/notes/add')} size="small" />
+        <Button analyticsId="app_notes_index_add_note" title="Add Note" onPress={() => router.push('/notes/add')} size="small" />
       </View>
 
       <ScrollView style={styles.noteList} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
@@ -140,18 +140,18 @@ export default function NotesScreen() {
           <View style={styles.filterRow}>
             <ThemedText style={styles.filterLabel}>Show:</ThemedText>
             <View style={styles.filterButtons}>
-              <Button title="All" variant={filter === 'all' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('all')} style={styles.filterButton} />
-              <Button title="Saved" variant={filter === 'saved' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('saved')} style={styles.filterButton} />
-              <Button title="Temp" variant={filter === 'temporary' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('temporary')} style={styles.filterButton} />
+              <Button analyticsId="app_notes_index_all" title="All" variant={filter === 'all' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('all')} style={styles.filterButton} />
+              <Button analyticsId="app_notes_index_saved" title="Saved" variant={filter === 'saved' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('saved')} style={styles.filterButton} />
+              <Button analyticsId="app_notes_index_temp" title="Temp" variant={filter === 'temporary' ? 'primary' : 'secondary'} size="small" onPress={() => setFilter('temporary')} style={styles.filterButton} />
             </View>
           </View>
 
           <View style={styles.filterRow}>
             <ThemedText style={styles.filterLabel}>Sort:</ThemedText>
             <View style={styles.filterButtons}>
-              <Button title="Updated" variant={sortBy === 'updated' ? 'primary' : 'secondary'} size="small" onPress={() => setSortBy('updated')} style={styles.filterButton} />
-              <Button title="Newest" variant={sortBy === 'newest' ? 'primary' : 'secondary'} size="small" onPress={() => setSortBy('newest')} style={styles.filterButton} />
-              <Button title="Oldest" variant={sortBy === 'oldest' ? 'primary' : 'secondary'} size="small" onPress={() => setSortBy('oldest')} style={styles.filterButton} />
+              <Button analyticsId="app_notes_index_updated" title="Updated" variant={sortBy === 'updated' ? 'primary' : 'secondary'} size="small" onPress={() => setSortBy('updated')} style={styles.filterButton} />
+              <Button analyticsId="app_notes_index_newest" title="Newest" variant={sortBy === 'newest' ? 'primary' : 'secondary'} size="small" onPress={() => setSortBy('newest')} style={styles.filterButton} />
+              <Button analyticsId="app_notes_index_oldest" title="Oldest" variant={sortBy === 'oldest' ? 'primary' : 'secondary'} size="small" onPress={() => setSortBy('oldest')} style={styles.filterButton} />
             </View>
           </View>
         </Card>
@@ -168,9 +168,8 @@ export default function NotesScreen() {
           </Card>
         ) : (
           noteItems.map(note => (
-            <TouchableOpacity
-              key={note.id}
-              onPress={() =>
+            <TouchableOpacity analyticsId="notes_open_item" analyticsControlType="list_item"
+              key={note.id} onPress={() =>
                 note.isTemporary
                   ? router.push(`/notes/edit/${note.id}?temp=1`)
                   : router.push(`/notes/edit/${note.id}`)
@@ -191,10 +190,14 @@ export default function NotesScreen() {
                   {getPreview(note.content)}
                 </ThemedText>
                 <View style={styles.noteFooter}>
-                  <ThemedText style={styles.noteMeta}>
-                    {note.isTemporary ? 'Session only' : `Updated ${formatDate(note.updated_at)}`}
-                  </ThemedText>
-                  <TouchableOpacity onPress={() => handleDelete(note)} style={styles.deleteButton}>
+                  {note.updated_at ? (
+                    <ThemedText style={styles.noteMeta}>
+                      Updated {formatDate(note.updated_at)}
+                    </ThemedText>
+                  ) : <ThemedText style={styles.noteMeta}>
+                      Created {formatDate(note.created_at)}
+                    </ThemedText>}
+                  <TouchableOpacity analyticsId="app_notes_index_delete_button" analyticsControlType="icon" onPress={() => handleDelete(note)} style={styles.deleteButton}>
                     <ThemedText style={styles.deleteText}>Delete</ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -203,6 +206,7 @@ export default function NotesScreen() {
           ))
         )}
       </ScrollView>
+      </ThemedView>
     </ThemedView>
   );
 }
@@ -210,6 +214,12 @@ export default function NotesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+  },
+  content: {
+    width: Platform.OS === 'web' ? '70%' : '100%',
+    alignSelf: 'center',
+    flex:1,
   },
   loadingContainer: {
     flex: 1,
@@ -228,6 +238,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   noteList: {
+
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
     flex: 1,
     paddingHorizontal: 16,
   },

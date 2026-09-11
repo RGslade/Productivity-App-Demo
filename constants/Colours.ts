@@ -1,98 +1,148 @@
+/**
+ * Warm-paper palette shared with the design prototype: paper ground, ink display
+ * type, clay as the single accent, olive for anything settled or complete.
+ */
 export const Colours = {
   light: {
     // Primary colors
-    primary: '#1769F5',
-    secondary: '#101826',
-    premiumAccent: '#00B8FF',
-    
+    primary: '#C05F3C',
+    secondary: '#6B665E',
+    premiumAccent: '#7F8F68',
+
     // Semantic colors
-    success: '#13A66B',
-    danger: '#E5484D',
-    warning: '#F5A524',
-    info: '#0095D9',
-    
+    success: '#7F8F68',
+    danger: '#B4472F',
+    warning: '#C3893B',
+    info: '#6B7C86',
+
     // Background colors
-    background: '#F3F7FF',
-    surface: '#EAF1FF',
-    cardBackground: '#FFFFFF',
-    
+    background: '#F2EFE7',
+    surface: '#EBE7DD',
+    cardBackground: '#FBF9F3',
+
     // Text colors
-    text: '#0A1020',
-    textSecondary: '#46546B',
-    textLight: '#7C8AA3',
-    
+    text: '#1E1C19',
+    textSecondary: '#6B665E',
+    textLight: '#8D877D',
+
     // Border colors
-    border: '#D6E2F4',
-    cardBorder: '#E2EAF7',
-    
+    border: 'rgba(30, 28, 25, 0.12)',
+    cardBorder: 'rgba(30, 28, 25, 0.10)',
+
     // Input colors
-    inputBackground: '#FFFFFF',
-    inputBorder: '#C8D6ED',
-    inputPlaceholder: '#7C8AA3',
-    
+    inputBackground: '#F2EFE7',
+    inputBorder: 'rgba(30, 28, 25, 0.14)',
+    inputPlaceholder: '#8D877D',
+
     // Status bar
     statusBarStyle: 'dark-content' as const,
-    
+
     // Navigation
-    navigationBackground: '#FFFFFF',
-    navigationTint: '#1769F5',
-    navigationText: '#0A1020',
-    
+    navigationBackground: '#F7F4EC',
+    navigationTint: '#C05F3C',
+    navigationText: '#1E1C19',
+
     // Shadow
-    shadowColor: '#000000',
-    
+    shadowColor: '#1E1C19',
+
     // Loading and overlay
-    overlay: 'rgba(5, 12, 28, 0.58)',
-    loadingBackground: 'rgba(255, 255, 255, 0.92)',
+    overlay: 'rgba(30, 28, 25, 0.52)',
+    loadingBackground: 'rgba(242, 239, 231, 0.92)',
   },
-  
+
   dark: {
     // Primary colors
-    primary: '#2D7DFF',
-    secondary: '#1B273A',
-    premiumAccent: '#00C8FF',
-    
+    primary: '#DB8460',
+    secondary: '#A9A296',
+    premiumAccent: '#A6B58C',
+
     // Semantic colors
-    success: '#22C983',
-    danger: '#FF6B70',
-    warning: '#FFC24B',
-    info: '#28B9F6',
-    
+    success: '#A6B58C',
+    danger: '#E8887A',
+    warning: '#DDAB63',
+    info: '#9AAFBA',
+
     // Background colors
-    background: '#050914',
-    surface: '#0B1220',
-    cardBackground: '#111A2A',
-    
+    background: '#171613',
+    surface: '#1E1C19',
+    cardBackground: '#24211D',
+
     // Text colors
-    text: '#F4F8FF',
-    textSecondary: '#B8C5D8',
-    textLight: '#7F8DA6',
-    
+    text: '#F7F4EC',
+    textSecondary: '#B4ADA1',
+    textLight: '#8F8880',
+
     // Border colors
-    border: '#1F314A',
-    cardBorder: '#20324D',
-    
+    border: 'rgba(247, 244, 236, 0.14)',
+    cardBorder: 'rgba(247, 244, 236, 0.11)',
+
     // Input colors
-    inputBackground: '#0B1220',
-    inputBorder: '#2A4162',
-    inputPlaceholder: '#7F8DA6',
-    
+    inputBackground: '#1E1C19',
+    inputBorder: 'rgba(247, 244, 236, 0.18)',
+    inputPlaceholder: '#8F8880',
+
     // Status bar
     statusBarStyle: 'light-content' as const,
-    
+
     // Navigation
-    navigationBackground: '#050914',
-    navigationTint: '#00C8FF',
-    navigationText: '#F4F8FF',
-    
+    navigationBackground: '#1B1916',
+    navigationTint: '#DB8460',
+    navigationText: '#F7F4EC',
+
     // Shadow
     shadowColor: '#000000',
-    
+
     // Loading and overlay
-    overlay: 'rgba(0, 0, 0, 0.74)',
-    loadingBackground: 'rgba(5, 9, 20, 0.9)',
+    overlay: 'rgba(10, 9, 8, 0.72)',
+    loadingBackground: 'rgba(23, 22, 19, 0.92)',
   },
 };
+
+/**
+ * Surfaces that intentionally invert: the one dark hero card per screen in light
+ * mode, and its raised version in dark mode.
+ */
+export const HeroSurface = {
+  light: {
+    background: '#1E1C19',
+    text: '#FFFDF7',
+    textSecondary: 'rgba(247, 244, 236, 0.62)',
+    border: 'rgba(247, 244, 236, 0.14)',
+    chipBackground: 'rgba(247, 244, 236, 0.12)',
+    actionBackground: '#FFFDF7',
+    actionText: '#1E1C19',
+    ringTrack: 'rgba(247, 244, 236, 0.18)',
+    ringValue: '#EDC7B6',
+  },
+  dark: {
+    background: '#24211D',
+    text: '#FFFDF7',
+    textSecondary: 'rgba(247, 244, 236, 0.62)',
+    border: 'rgba(247, 244, 236, 0.14)',
+    chipBackground: 'rgba(247, 244, 236, 0.10)',
+    actionBackground: '#DB8460',
+    actionText: '#171613',
+    ringTrack: 'rgba(247, 244, 236, 0.16)',
+    ringValue: '#EDC7B6',
+  },
+};
+
+/** Shared geometry so every surface in the app agrees on its corners and rhythm. */
+export const Radii = {
+  row: 19,
+  card: 22,
+  hero: 27,
+  sheet: 29,
+  pill: 999,
+  control: 15,
+} as const;
+
+export const Spacing = {
+  screenX: 20,
+  gap: 9,
+  cardGap: 11,
+  section: 26,
+} as const;
 
 // Color utility functions
 export const getColourForTheme = (colourName: keyof typeof Colours.light, theme: 'light' | 'dark' = 'light') => {
@@ -101,28 +151,30 @@ export const getColourForTheme = (colourName: keyof typeof Colours.light, theme:
 
 // Brand colors (theme-independent)
 export const BrandColours = {
-  brand: '#1769F5',
-  brandLight: '#DDEBFF',
-  brandDark: '#050914',
-  premiumAccent: '#00C8FF',
-  graphite: '#050914',
-  electricBlue: '#1769F5',
-  cyan: '#00C8FF',
-  ice: '#F4F8FF',
-  
+  brand: '#C05F3C',
+  brandLight: '#EDC7B6',
+  brandDark: '#1E1C19',
+  premiumAccent: '#7F8F68',
+
+  // Legacy names retained for older components; values now map to warm-paper tokens.
+  graphite: '#1E1C19',
+  electricBlue: '#C05F3C',
+  cyan: '#7F8F68',
+  ice: '#F2EFE7',
+
   // Reusable component colors
-  badgeGreen: '#13A66B',
-  badgeGreenLight: '#13A66B33',
-  
+  badgeGreen: '#7F8F68',
+  badgeGreenLight: '#7F8F6833',
+
   // Notification colors (motivational & encouragement)
-  notificationMotivational: '#13A66B',
-  notificationMotivationalLight: '#13A66B33',
-  notificationDeadline: '#F5A524',
-  notificationDeadlineLight: '#F5A52433',
-  notificationOverdue: '#E5484D',
-  notificationOverdueLight: '#E5484D33',
-  notificationEncouragement: '#1769F5',
-  notificationEncouragementLight: '#1769F533',
+  notificationMotivational: '#7F8F68',
+  notificationMotivationalLight: '#7F8F6833',
+  notificationDeadline: '#C3893B',
+  notificationDeadlineLight: '#C3893B33',
+  notificationOverdue: '#B4472F',
+  notificationOverdueLight: '#B4472F33',
+  notificationEncouragement: '#C05F3C',
+  notificationEncouragementLight: '#C05F3C33',
   
   // System colors
   systemBlue: '#007AFF',

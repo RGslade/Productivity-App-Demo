@@ -2,23 +2,23 @@
 
 Productivity Mobile App is an Expo React Native application for organising the practical parts of independent adult life: tasks, checklists, budgeting, notes, education records, documents, news, useful links, subscriptions, ads, and AI-assisted planning.
 
-The app is aimed at young adults and early-career users who need a single mobile workspace for day-to-day organisation while preparing for greater independence. Its central problem is fragmentation: budgeting, moving-out preparation, task tracking, document references, and support links often live in separate tools. This project brings those workflows into one authenticated mobile experience with a Supabase-backed data model and a premium AI assistant called LifeNest.
+The project is aimed at young adults and early-career users who need a single mobile workspace for day-to-day organisation while preparing for greater independence. Its central problem is fragmentation: budgeting, moving-out preparation, task tracking, document references, and support links often live in separate tools. This project brings those workflows into one authenticated mobile experience with a Supabase-backed data model and a premium AI assistant called LifeNest.
 
-This repository is a public demo version. It preserves the app architecture and core client-side implementation, but intentionally excludes private environment files, production credentials, service-role keys, release notes, account-specific provider configuration, and any private backend secrets.
+This repository is a personal portfolio project. It contains the app architecture and core client-side implementation, but intentionally excludes private environment files, production credentials, service-role keys, release notes, account-specific provider configuration, and any private backend secrets.
 
 ## Key Features
 
 - **Authenticated personal workspace**: Supabase authentication protects user-specific app data and routes unauthenticated users to the login flow. This allows tasks, notes, budgets, settings, and AI conversations to be associated with the signed-in profile.
 - **Dashboard overview**: The dashboard summarises tasks, checklists, monthly finances, recent notes, latest grades, news headlines, and recent LifeNest conversations. Premium users can customise dashboard card order and visibility.
 - **Tasks and checklists**: Users can create and manage standard tasks, checklist-style items, due dates, reminders, categories, completion progress, and premium preparation workflows such as Moving Out.
-- **Budget tracking**: Income and expenses are stored as transactions, grouped by month, and formatted using the user’s preferred currency symbol.
+- **Budget tracking**: Income and expenses are stored as transactions, grouped by month, and formatted using the userâ€™s preferred currency symbol.
 - **Notes, documents, and education grades**: The app includes persistent notes, document records with local file export support, and education grade tracking for personal admin and reference.
 - **LifeNest AI assistant**: LifeNest supports independent-living guidance around budgeting, housing, employment readiness, daily routines, and related planning. The client calls a Supabase Edge Function so OpenAI credentials stay server-side in production.
 - **Subscriptions, virtual currency, and ads**: RevenueCat manages subscriptions, remove-ads purchases, and LifeNest token products. Google AdMob provides banner and interstitial ads for non-ad-free users. Local development uses Google AdMob test IDs.
 - **Notifications and app lifecycle handling**: Expo Notifications, Notifee, background task registration, and app-state hooks support reminder behaviour and foreground refresh flows.
 - **Theming and persisted settings**: User preferences such as theme, font, notification settings, budget currency, dashboard layout, and LifeNest appearance are stored through settings services. Some local preferences use AsyncStorage.
 - **Curated links and regional content**: The Links area and regional markdown files provide support/resource references, while the news screen reads Sky News RSS feeds where supported.
-- **Housing and job search helpers**: Housing search can use a local RapidAPI key, a backend function, or fallback demo listings. Job search currently redirects to Indeed UK using the user’s query and location; older Reed API code is retained only as commented reference.
+- **Housing and job search helpers**: Housing search can use a local RapidAPI key, a backend function, or fallback sample listings. Job search currently redirects to Indeed UK using the userâ€™s query and location; older Reed API code is retained only as commented reference.
 
 ## Technology Stack
 
@@ -33,7 +33,7 @@ This repository is a public demo version. It preserves the app architecture and 
 - **TanStack Query** manages server state for tasks, notes, transactions, grades, settings, news-adjacent data, and cache invalidation. It keeps screen components focused on UI and mutation flow.
 - **AsyncStorage** persists Supabase auth sessions and selected local app preferences, including theme/dashboard-style settings where service code uses local storage.
 - **Expo Notifications, Notifee, Task Manager, Background Fetch, Device, Location, NetInfo, Clipboard, DateTimePicker, Picker, Reanimated, Gesture Handler, Screens, and Safe Area Context** support mobile-specific UX, permissions, background work, connectivity checks, native controls, and navigation performance.
-- **Skia and sensors** are not currently dependencies in this public demo. They should not be assumed to exist unless added in a future version.
+- **Skia and sensors** are not currently dependencies in this portfolio project. They should not be assumed to exist unless added in a future version.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ This structure keeps feature code reviewable: screens describe interaction flow,
 
 ## Backend and API Design
 
-Supabase is the app’s backend abstraction. `lib/supabase.ts` creates a client with AsyncStorage-backed auth persistence. `services/databaseService.ts` wraps common table operations, auth calls, OAuth code exchange, password reset, RPC calls, and Edge Function invocation.
+Supabase is the appâ€™s backend abstraction. `lib/supabase.ts` creates a client with AsyncStorage-backed auth persistence. `services/databaseService.ts` wraps common table operations, auth calls, OAuth code exchange, password reset, RPC calls, and Edge Function invocation.
 
 Important integrations:
 
@@ -73,7 +73,7 @@ Important integrations:
 - **News**: `services/newsService.ts` fetches and parses public Sky News RSS feeds with connectivity checks, timeout handling, and retries.
 - **Job search**: `services/jobService.ts` currently redirects users to Indeed UK with encoded search parameters. Older direct API code is commented out and not active.
 
-Private Supabase service-role credentials, OpenAI keys, AdMob production unit IDs, RevenueCat production SDK keys, RapidAPI secrets, signing credentials, and other provider secrets are intentionally removed from this repository. Public demo behaviour is designed to fail closed, use test IDs, or show local fallback data where that support exists.
+Private Supabase service-role credentials, OpenAI keys, AdMob production unit IDs, RevenueCat production SDK keys, RapidAPI secrets, signing credentials, and other provider secrets are intentionally removed from this repository. Portfolio behaviour is designed to fail closed, use test IDs, or show local fallback data where that support exists.
 
 ## Security
 
@@ -82,7 +82,7 @@ Private Supabase service-role credentials, OpenAI keys, AdMob production unit ID
 - Sensitive API calls are designed to cross a server-side boundary through Supabase Edge Functions. Production OpenAI, AdMob config, billing config, and provider credentials should live in Supabase function secrets or provider dashboards.
 - Supabase auth is assumed for user-scoped data. Database tables should enforce Row Level Security policies so authenticated users can access only their own rows, while shared/global tables expose only intended public data.
 - Logs avoid printing full auth emails in several auth paths by masking email addresses before diagnostics.
-- The public demo uses safe AdMob test IDs and placeholder app identifiers. Production bundle IDs, store signing keys, and release credentials are not included.
+- The portfolio build uses safe AdMob test IDs and placeholder app identifiers. Production bundle IDs, store signing keys, and release credentials are not included.
 
 ## Running Locally
 
@@ -110,14 +110,14 @@ npm run ios
 npm run lint
 ```
 
-The app can be reviewed without private production keys. Public Supabase URL/anon configuration is still required for login and database-backed screens. If Edge Function secrets are missing, AI, billing config, production ad config, and housing API calls may be unavailable; supported demo paths fall back to safe test ads, local development values, or sample listings.
+The app can be reviewed without private production keys. Public Supabase URL/anon configuration is still required for login and database-backed screens. If Edge Function secrets are missing, AI, billing config, production ad config, and housing API calls may be unavailable; supported local paths fall back to safe test ads, local development values, or sample listings.
 
 Optional local services:
 
-- Supabase auth/database: required for full app navigation and persistence. For a public demo, provide setup as SQL migrations or Supabase CLI migrations rather than a private production dump.
+- Supabase auth/database: required for full app navigation and persistence. For portfolio review, provide setup as SQL migrations or Supabase CLI migrations rather than a private production dump.
 - Supabase Edge Functions: required for production-like AI, billing config, ad config, and housing search.
 - RevenueCat: optional for local review; purchase screens show configuration guidance when unavailable.
-- Google AdMob: optional for local review; test IDs are used for safe demo rendering.
+- Google AdMob: optional for local review; test IDs are used for safe local rendering.
 - RapidAPI/Zoopla: optional; housing search has fallback sample listings.
 
 ## Environment Example
@@ -147,10 +147,10 @@ EXPO_PUBLIC_ZOOPLA_RAPIDAPI_HOST=
 
 This repository includes a sanitised Supabase CLI setup under `supabase/`:
 
-- `supabase/config.toml`: local Supabase service ports, auth redirect URLs, and demo Edge Function configuration.
+- `supabase/config.toml`: local Supabase service ports, auth redirect URLs, and local Edge Function configuration.
 - `supabase/migrations/`: executable schema, indexes, triggers, Row Level Security policies, and reviewer-safe RPC functions.
-- `supabase/seed.sql`: one demo auth user and representative sample rows for app config, profile, settings, tasks, checklists, transactions, notes, grades, documents, feedback, job applications, notifications, dashboard customisation, and LifeNest chat/usage data.
-- `supabase/functions/`: local demo Edge Functions for `ai-assistant`, `ad-config`, `billing-config`, `housing-search`, and `reed-job-details`.
+- `supabase/seed.sql`: one sample auth user and representative sample rows for app config, profile, settings, tasks, checklists, transactions, notes, grades, documents, feedback, job applications, notifications, dashboard customisation, and LifeNest chat/usage data.
+- `supabase/functions/`: local local Edge Functions for `ai-assistant`, `ad-config`, `billing-config`, `housing-search`, and `reed-job-details`.
 
 Run the local backend:
 
@@ -167,16 +167,16 @@ EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-Demo login:
+Sample login:
 
 ```text
 Email: demo@example.com
 Password: DemoPass123!
 ```
 
-The public Supabase setup intentionally uses safe demo data and Google AdMob test IDs. It does not include production auth users, service-role credentials, OpenAI keys, RevenueCat production keys, RapidAPI keys, signing credentials, or private app configuration.
+The public Supabase setup intentionally uses safe sample data and Google AdMob test IDs. It does not include production auth users, service-role credentials, OpenAI keys, RevenueCat production keys, RapidAPI keys, signing credentials, or private app configuration.
 
-The included Edge Functions are production-shaped: they call real provider APIs when Supabase secrets are configured and fall back to safe demo responses when secrets are absent. Configure function secrets with your own provider credentials:
+The included Edge Functions are production-shaped: they call real provider APIs when Supabase secrets are configured and fall back to safe local responses when secrets are absent. Configure function secrets with your own provider credentials:
 
 ```bash
 supabase secrets set OPENAI_API_KEY=
@@ -195,7 +195,7 @@ supabase secrets set STRIPE_SECRET_KEY=
 supabase secrets set STRIPE_PRICE_ID=
 ```
 
-`supabase/functions/.env.example` lists the server-side keys expected by the demo functions. These are intentionally separate from Expo `EXPO_PUBLIC_` variables because they must not be bundled into the mobile app.
+`supabase/functions/.env.example` lists the server-side keys expected by the local functions. These are intentionally separate from Expo `EXPO_PUBLIC_` variables because they must not be bundled into the mobile app.
 
 ## Testing and Quality
 
@@ -241,9 +241,9 @@ npm run build:ios
 
 Android builds can produce APK/AAB artifacts depending on EAS configuration and requested profile. iOS builds require the usual Apple Developer credentials. The public `app.json` uses placeholder package identifiers, owner, EAS project ID, and Google AdMob test app IDs; production identifiers and signing credentials should be supplied outside this repository.
 
-## Screenshots and Demo
+## Screenshots and Portfolio Media
 
-Add production or demo media here when available:
+Add portfolio media here when available:
 
 - `docs/screenshots/dashboard.png` - Dashboard overview with tasks, finances, LifeNest, notes, grades, and news cards.
 - `docs/screenshots/tasks-checklists.png` - Task and checklist management with progress, due dates, and categories.
@@ -251,7 +251,7 @@ Add production or demo media here when available:
 - `docs/screenshots/lifenest-chat.png` - LifeNest conversation with token usage and reporting controls.
 - `docs/screenshots/subscribe.png` - RevenueCat subscription and LifeNest token purchase screen.
 - `docs/screenshots/settings.png` - Profile, theme, notifications, purchases, and app settings.
-- Demo video: `<add link when available>`.
+- Portfolio video: `<add link when available>`.
 
 ## Known Limitations
 
@@ -260,11 +260,11 @@ Add production or demo media here when available:
 - Full app persistence requires a compatible Supabase project and RLS policies.
 - LifeNest AI requires the `ai-assistant` Edge Function and server-side OpenAI configuration; without it, model listing and assistant responses may be unavailable.
 - RevenueCat production billing requires store products, offerings, entitlements, virtual currency, and server-side or local SDK key configuration.
-- AdMob production ad unit IDs are not included. Demo mode uses Google test IDs.
+- AdMob production ad unit IDs are not included. Local review uses Google test IDs.
 - Housing search falls back to sample listings unless RapidAPI or the backend function is configured.
 - Job search currently redirects to Indeed UK rather than returning in-app job results.
-- Automated tests are not yet present in this public demo.
-- Some public-demo values are anonymised, including publisher details, package identifiers, EAS project ID, and store metadata.
+- Automated tests are not yet present in this portfolio project.
+- Some Portfolio-safe values are used for package identifiers, project identifiers, and store metadata.
 
 ## Roadmap
 

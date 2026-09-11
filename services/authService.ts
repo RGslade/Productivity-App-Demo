@@ -1,8 +1,10 @@
 import { LoginRequest, RegisterRequest, ChangePasswordRequest, LoginResult } from '@/types/user';
 import databaseService from './databaseService';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { getSession } from '@/lib/supabase';
 import { userService } from './userService';
+import type { Provider } from '@supabase/supabase-js';
 
 type AuthErrorContext = 'login' | 'register' | 'changePassword' | 'resetPassword' | 'verifyRecoveryCode';
 
@@ -18,6 +20,46 @@ type ErrorWithCode = Error & {
   cause?: unknown;
 };
 
+export type SocialAuthProvider = Extract<Provider, 'google' | 'apple' | 'spotify'>;
+
+const SOCIAL_AUTH_SCOPES: Record<SocialAuthProvider, string> = {
+  google: 'email profile',
+  apple: 'name email',
+  spotify: 'user-read-email user-read-private',
+};
+
+const completedOAuthCodes = new Set<string>();
+const pendingOAuthCodeExchanges = new Map<string, Promise<void>>();
+
+/** Returns the OAuth callback URL for the current runtime. */
+const getOAuthRedirectUrl = (): string => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/auth/callback`;
+  }
+
+  return Linking.createURL('auth/callback');
+};
+
+const readOAuthParam = (url: string, key: string): string => {
+  const parsedUrl = Linking.parse(url);
+  const parsedValue = parsedUrl.queryParams?.[key];
+  if (typeof parsedValue === 'string') return parsedValue;
+
+  const patterns = [
+    new RegExp(`[?&]${key}=([^&#]+)`),
+    new RegExp(`[#&]${key}=([^&#]+)`),
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match?.[1]) {
+      return decodeURIComponent(match[1].replace(/\+/g, ' '));
+    }
+  }
+
+  return '';
+};
+
 /** Masks an email address for auth logs while keeping enough context to identify the affected account. */
 const maskEmailForLog = (value: string): string => {
   const [localPart = '', domain = ''] = value.split('@');
@@ -30,8 +72,8 @@ const maskEmailForLog = (value: string): string => {
 
 const AUTH_ERROR_ALERTS: Record<string, Omit<AuthAlertContent, 'code'>> = {
   INVALID_CREDENTIALS: {
-    title: 'Login Failed',
-    message: 'Incorrect email or password.',
+    title: 'Sign In Failed',
+    message: 'Check your email and password, then try again.',
   },
   EMAIL_NOT_CONFIRMED: {
     title: 'Email Not Verified',
@@ -66,7 +108,7 @@ const AUTH_ERROR_ALERTS: Record<string, Omit<AuthAlertContent, 'code'>> = {
     message: 'Please sign in again to continue.',
   },
   UNKNOWN_LOGIN_ERROR: {
-    title: 'Login Failed',
+    title: 'Sign In Failed',
     message: 'We could not sign you in. Please try again.',
   },
   UNKNOWN_REGISTER_ERROR: {
@@ -192,15 +234,19 @@ const createAuthError = (code: string, cause?: unknown): ErrorWithCode => {
   return error;
 };
 
-//Handles errors in the auth service and maps them to user-friendly alert content.
 export const getAuthErrorAlert = (error: unknown, context: AuthErrorContext = 'login'): AuthAlertContent => {
   const code = normalizeAuthErrorCode(error, context);
   const alert = AUTH_ERROR_ALERTS[code] ?? AUTH_ERROR_ALERTS[getFallbackCode(context)];
 
-  return {code, title: alert.title, message: alert.message,};
+  return {
+    code,
+    title: alert.title,
+    message: alert.message,
+  };
 };
 
 class AuthService {
+  /** Maps register or completion form data into the user profile fields stored in `Users_Info`. */
   private buildProfilePayload(userData: RegisterRequest) {
     return {
       first_name: userData.firstName,
@@ -215,14 +261,20 @@ class AuthService {
       subscription_product_id: userData.subscription_product_id,
       subscription_status: userData.subscription_status,
       terms_accepted: userData.terms_accepted,
-      terms_accepted_at: userData.terms_accepted ? new Date().toISOString() : null,
+      terms_accepted_at: userData.terms_accepted ? userData.terms_accepted_at ?? new Date().toISOString() : null,
       terms_version_accepted: userData.terms_version_accepted,
+      terms_viewed_at: userData.terms_viewed_at,
+      terms_version_viewed: userData.terms_version_viewed,
       privacy_policy_accepted: userData.privacy_policy_accepted,
-      privacy_policy_accepted_at: userData.privacy_policy_accepted ? new Date().toISOString() : null,
+      privacy_policy_accepted_at: userData.privacy_policy_accepted ? userData.privacy_policy_accepted_at ?? new Date().toISOString() : null,
       privacy_policy_version_accepted: userData.privacy_policy_version_accepted,
+      privacy_policy_viewed_at: userData.privacy_policy_viewed_at,
+      privacy_policy_version_viewed: userData.privacy_policy_version_viewed,
       lifenest_terms_accepted: userData.lifenest_terms_accepted,
-      lifenest_terms_accepted_at: userData.lifenest_terms_accepted ? new Date().toISOString() : null,
+      lifenest_terms_accepted_at: userData.lifenest_terms_accepted ? userData.lifenest_terms_accepted_at ?? new Date().toISOString() : null,
       lifenest_terms_version_accepted: userData.lifenest_terms_version_accepted,
+      lifenest_terms_viewed_at: userData.lifenest_terms_viewed_at,
+      lifenest_terms_version_viewed: userData.lifenest_terms_version_viewed,
     };
   }
 
@@ -260,7 +312,7 @@ class AuthService {
     }
   }
 
-  /** Creates a brand-new auth account and writes the first profile row. */
+  /** Creates a brand-new auth account and writes the first `Users_Info` row. */
   async register(userData: RegisterRequest): Promise<void> {
     try {
       await databaseService.signOut();
@@ -273,6 +325,10 @@ class AuthService {
           job_status: userData.job_status,
           terms_accepted: userData.terms_accepted,
           privacy_policy_accepted: userData.privacy_policy_accepted,
+          lifenest_terms_accepted: userData.lifenest_terms_accepted,
+          terms_version_accepted: userData.terms_version_accepted,
+          privacy_policy_version_accepted: userData.privacy_policy_version_accepted,
+          lifenest_terms_version_accepted: userData.lifenest_terms_version_accepted,
         },
       });
       if (signUpError) {
@@ -289,7 +345,7 @@ class AuthService {
     }
   }
 
-  /** Completes a previously created auth account by writing the missing profile row. */
+  /** Completes a previously created auth account by writing the missing `Users_Info` row. */
   async completeAccount(userData: RegisterRequest): Promise<void> {
     try {
       await databaseService.updateUser({
@@ -301,29 +357,78 @@ class AuthService {
           job_status: userData.job_status,
           terms_accepted: userData.terms_accepted,
           privacy_policy_accepted: userData.privacy_policy_accepted,
+          lifenest_terms_accepted: userData.lifenest_terms_accepted,
+          terms_version_accepted: userData.terms_version_accepted,
+          privacy_policy_version_accepted: userData.privacy_policy_version_accepted,
+          lifenest_terms_version_accepted: userData.lifenest_terms_version_accepted,
         },
       });
-      await userService.upsertCurrentUserProfile(this.buildProfilePayload(userData));
+      const profile = await userService.upsertCurrentUserProfile(this.buildProfilePayload(userData));
+      if (!userService.isProfileComplete(profile)) {
+        throw createAuthError('UNKNOWN_REGISTER_ERROR', new Error('Completed profile remained incomplete after save'));
+      }
     } catch (error) {
       console.error('authService.completeAccount', error);
       throw createAuthError(normalizeAuthErrorCode(error, 'register'), error);
     }
   }
 
-  /** Starts Google OAuth and returns the provider URL that should be opened by the app. */
-  async startGoogleOAuth(): Promise<string> {
-    const redirectTo = Linking.createURL('auth/callback');
-    return databaseService.signInWithOAuth('google', redirectTo);
+  /** Starts provider OAuth and returns the provider URL that should be opened by the app. */
+  async startSocialOAuth(provider: SocialAuthProvider): Promise<string> {
+    const redirectTo = getOAuthRedirectUrl();
+    return databaseService.signInWithOAuth(provider, redirectTo, SOCIAL_AUTH_SCOPES[provider]);
   }
 
-  /** Exchanges an OAuth redirect URL for a backend session. */
+  /** Returns the same callback URL used when starting social OAuth. */
+  getSocialOAuthRedirectUrl(): string {
+    return getOAuthRedirectUrl();
+  }
+
+  /** Starts Google OAuth and returns the provider URL that should be opened by the app. */
+  async startGoogleOAuth(): Promise<string> {
+    return this.startSocialOAuth('google');
+  }
+
+  /** Exchanges an OAuth redirect URL for a Supabase session. */
   async completeOAuthRedirect(url: string): Promise<void> {
-    const parsedUrl = Linking.parse(url);
-    const code = typeof parsedUrl.queryParams?.code === 'string' ? parsedUrl.queryParams.code : '';
-    if (!code) {
-      throw createAuthError('UNKNOWN_LOGIN_ERROR', new Error('OAuth code missing'));
+    const authError = readOAuthParam(url, 'error');
+    const authErrorDescription = readOAuthParam(url, 'error_description');
+    if (authError || authErrorDescription) {
+      throw createAuthError('UNKNOWN_LOGIN_ERROR', new Error(authErrorDescription || authError));
     }
-    await databaseService.exchangeCodeForSession(code);
+
+    const code = readOAuthParam(url, 'code');
+    if (!code) {
+      const accessToken = readOAuthParam(url, 'access_token');
+      const refreshToken = readOAuthParam(url, 'refresh_token');
+      if (accessToken && refreshToken) {
+        await databaseService.setSessionFromOAuthTokens(accessToken, refreshToken);
+        return;
+      }
+
+      throw createAuthError('UNKNOWN_LOGIN_ERROR', new Error('OAuth code or session tokens missing from callback URL'));
+    }
+
+    if (completedOAuthCodes.has(code)) {
+      return;
+    }
+
+    const pendingExchange = pendingOAuthCodeExchanges.get(code);
+    if (pendingExchange) {
+      await pendingExchange;
+      return;
+    }
+
+    const exchange = databaseService.exchangeCodeForSession(code)
+      .then(() => {
+        completedOAuthCodes.add(code);
+      })
+      .finally(() => {
+        pendingOAuthCodeExchanges.delete(code);
+      });
+
+    pendingOAuthCodeExchanges.set(code, exchange);
+    await exchange;
   }
 
   async changePassword(data: ChangePasswordRequest): Promise<void> {

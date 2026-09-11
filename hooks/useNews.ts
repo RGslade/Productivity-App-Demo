@@ -13,6 +13,7 @@ export const useNews = () => {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    retry: false,
   });
 
   return {

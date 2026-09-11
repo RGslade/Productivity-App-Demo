@@ -17,10 +17,10 @@ import {
   REVENUECAT_ANDROID_LIVE_PREFERRED_PRODUCT_IDS,
   REVENUECAT_DEV_PREFERRED_PRODUCT_IDS,
   REVENUECAT_ENTITLEMENT_ID,
+  LIFENEST_REVENUECAT_TOKEN_CODE,
   YEARLY_PRODUCT_IDENTIFIERS,
 } from "@/constants/subscription";
 import { supabase } from "@/lib/supabase";
-import { BackendFunctions } from "@/constants/backendResources";
 
 export type SubscriptionProvider = "google_play" | "apple_iap";
 export type RevenueCatProductKind =
@@ -33,19 +33,19 @@ export type RevenueCatProductKind =
   | "unknown";
 
 const CURRENCY_SYMBOL_TO_CODE: Record<string, string> = {
-  'Â£': 'GBP',
+  'Ã‚Â£': 'GBP',
   '$': 'USD',
-  'â‚¬': 'EUR',
-  'Â¥': 'JPY',
-  'â‚¹': 'INR',
-  'â‚¦': 'NGN',
-  'â‚©': 'KRW',
-  'â‚º': 'TRY',
-  'â‚½': 'RUB',
-  'à¸¿': 'THB',
-  'â‚«': 'VND',
-  'â‚±': 'PHP',
-  'â‚ª': 'ILS',
+  'Ã¢â€šÂ¬': 'EUR',
+  'Ã‚Â¥': 'JPY',
+  'Ã¢â€šÂ¹': 'INR',
+  'Ã¢â€šÂ¦': 'NGN',
+  'Ã¢â€šÂ©': 'KRW',
+  'Ã¢â€šÂº': 'TRY',
+  'Ã¢â€šÂ½': 'RUB',
+  'Ã Â¸Â¿': 'THB',
+  'Ã¢â€šÂ«': 'VND',
+  'Ã¢â€šÂ±': 'PHP',
+  'Ã¢â€šÂª': 'ILS',
   'R$': 'BRL',
   'C$': 'CAD',
   'A$': 'AUD',
@@ -55,12 +55,12 @@ const CURRENCY_SYMBOL_TO_CODE: Record<string, string> = {
   'Mex$': 'MXN',
   'Fr': 'CHF',
   'kr': 'SEK',
-  'zÅ‚': 'PLN',
-  'KÄ': 'CZK',
+  'zÃ…â€š': 'PLN',
+  'KÃ„Â': 'CZK',
   'R': 'ZAR',
-  'Ø¯.Ø¥': 'AED',
-  'Ø±.Ø³': 'SAR',
-  'Ø±.Ù‚': 'QAR',
+  'Ã˜Â¯.Ã˜Â¥': 'AED',
+  'Ã˜Â±.Ã˜Â³': 'SAR',
+  'Ã˜Â±.Ã™â€š': 'QAR',
 };
 
 const APPROX_USD_EXCHANGE_RATES: Record<string, number> = {
@@ -186,7 +186,7 @@ async function getRevenueCatApiKey(): Promise<string> {
   const platform = Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "unknown";
   if (platform === "unknown") return "";
 
-  const { data, error } = await supabase.functions.invoke(BackendFunctions.billingConfig, {
+  const { data, error } = await supabase.functions.invoke("revenuecat-config", {
     body: {
       platform,
       useTestKey: __DEV__,
@@ -271,6 +271,7 @@ export function resolveLifeNestVirtualCurrency(
       score: (() => {
         const code = currency.code.toLowerCase();
         const name = currency.name.toLowerCase();
+        if (code === LIFENEST_REVENUECAT_TOKEN_CODE.toLowerCase()) return 110;
         if (code === "lifenest_tokens") return 100;
         if (code.includes("lifenest") && code.includes("token")) return 90;
         if (name.includes("lifenest") && name.includes("token")) return 80;
@@ -350,19 +351,39 @@ export function getLifeNestTokenAmountForProductKind(kind: RevenueCatProductKind
 export function getProEntitlement(customerInfo: CustomerInfo | null) {
   if (!customerInfo) return null;
 
-  return (
+  const entitlement = (
     customerInfo.entitlements.all[REVENUECAT_ENTITLEMENT_ID] ??
     customerInfo.entitlements.active[REVENUECAT_ENTITLEMENT_ID] ??
     null
   );
+
+  const productIdentifier = entitlement?.productIdentifier;
+  const productKind = productIdentifier ? getRevenueCatProductKind(productIdentifier) : "unknown";
+  if (productKind === "remove_ads" || isLifeNestTokenProductKind(productKind)) {
+    console.warn("[RevenueCat] ignoring non-subscription product attached to Pro entitlement", {
+      productIdentifier,
+      productKind,
+    });
+    return null;
+  }
+
+  return entitlement;
 }
 
 export function isProEntitlementActive(customerInfo: CustomerInfo | null) {
   return getProEntitlement(customerInfo)?.isActive ?? false;
 }
 
+function getRemoveAdsEntitlement(customerInfo: CustomerInfo | null) {
+  const entitlements = Object.values(customerInfo?.entitlements?.all ?? {});
+  return entitlements.find(
+    (entitlement) => entitlement.isActive && getRevenueCatProductKind(entitlement.productIdentifier ?? "") === "remove_ads"
+  ) ?? null;
+}
+
 export function deriveSubscriptionProfile(customerInfo: CustomerInfo | null) {
   const entitlement = getProEntitlement(customerInfo);
+  const removeAdsEntitlement = getRemoveAdsEntitlement(customerInfo);
   const entitlementDates = entitlement as {
     originalPurchaseDate?: string | null;
     latestPurchaseDate?: string | null;
@@ -374,10 +395,11 @@ export function deriveSubscriptionProfile(customerInfo: CustomerInfo | null) {
   );
   const hasRemoveAds = Array.from(purchasedProductIds).some(
     (id) => getRevenueCatProductKind(id) === "remove_ads"
-  );
+  ) || Boolean(removeAdsEntitlement);
   const provider = mapStoreToProvider(entitlement?.store ?? null);
   const entitlementProductId = entitlement?.productIdentifier ?? null;
   const removeAdsProductId =
+    removeAdsEntitlement?.productIdentifier ??
     (customerInfo?.allPurchasedProductIdentifiers ?? []).find(
       (identifier) => getRevenueCatProductKind(identifier) === "remove_ads"
     ) ?? null;
@@ -437,7 +459,6 @@ export function getCustomerInfoDebugSnapshot(customerInfo: CustomerInfo | null) 
 }
 
 export function getPackageDisplayLabel(pkg: PurchasesPackage) {
-  const identifier = pkg.product.identifier;
   const title = pkg.product.title?.trim();
   const kind = getRevenueCatPackageKind(pkg);
 
@@ -674,10 +695,11 @@ class SubscriptionService {
   /**
    * Resolves and caches the RevenueCat SDK key for this device platform.
    */
-  private async resolveApiKey() {
+  private async resolveApiKey(): Promise<string> {
     if (this.apiKey) return this.apiKey;
-    this.apiKey = await getRevenueCatApiKey();
-    return this.apiKey;
+    const apiKey = await getRevenueCatApiKey();
+    this.apiKey = apiKey;
+    return apiKey;
   }
 
   /**
@@ -718,8 +740,8 @@ class SubscriptionService {
 
   async getCustomerInfo() {
     await this.configure();
-    const customerInfo = await Purchases.getCustomerInfo();
-    return customerInfo;
+    const info = await Purchases.getCustomerInfo();
+    return info;
   }
 
   async getAppUserID() {

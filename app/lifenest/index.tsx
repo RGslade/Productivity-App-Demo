@@ -1,5 +1,6 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 
@@ -11,17 +12,20 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import {
-  calculateLifeNestTokensForMessage,
   LIFENEST_MAX_INPUT_CHARACTERS,
   LIFENEST_USAGE_WARNING_RATIO,
 } from '@/constants/lifeNestUsage';
 import { useAuth } from '@/hooks/useAuth';
+import { showAlert } from '@/hooks/dataHandler';
 import { useLifeNestTermsVersion } from '@/hooks/useSettings';
 import { lifeNestService } from '@/services/lifeNestService';
 import { settingsService } from '@/services/settingsService';
 import { userService } from '@/services/userService';
+import { logError } from '@/services/crashLogger';
 import { showTokenUsageToast } from '@/services/tokenToastService';
+import { openRevenueCatHostedPurchases } from '@/services/revenueCatWebPurchaseLinkService';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { useSubscriptions } from '@/hooks/useSubscriptions';
 import {
   ChatFeedbackReportRequest,
   ChatMessage,
@@ -29,14 +33,12 @@ import {
   LifeNestMonthlyUsageSummary,
   SendMessageRequest,
 } from '@/types/chatBot';
+import { calculateChatTokenCost } from '@/constants/tokenUsage';
+import { LIFENEST_CAPABILITY_PROMPTS } from '@/constants/lifeNestPrompts';
 
-const SAMPLE_QUESTIONS = [
-  'How can I budget better for moving out?',
-  'Help me plan my week with my work hours and free time.',
-  'What should I consider before renting my first place?',
-];
+const SAMPLE_QUESTIONS = LIFENEST_CAPABILITY_PROMPTS;
 
-const DEFAULT_LIFENEST_MODEL = 'gpt-4o';
+const DEFAULT_LIFENEST_MODEL = 'gpt-5.6-luna';
 
 const REPORT_REASONS = [
   'Unsafe advice',
@@ -66,7 +68,8 @@ export default function LifeNestScreen() {
   const [selectedConversationTitle, setSelectedConversationTitle] = useState<string>('New conversation');
   const [historyVisible, setHistoryVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const { userInfo } = useAuth();
+  const { user, userInfo } = useAuth();
+  const { isPremium, refreshVirtualCurrencies } = useSubscriptions();
   const [backgroundColour, setBackgroundColour] = useState<string>('#FFFFFF');
   const [reportVisible, setReportVisible] = useState(false);
   const [reportReason, setReportReason] = useState<string>('');
@@ -77,12 +80,13 @@ export default function LifeNestScreen() {
   const [monthlyUsage, setMonthlyUsage] = useState<LifeNestMonthlyUsageSummary | null>(null);
   const [isUsageBlocked, setIsUsageBlocked] = useState(false);
   const [showUsageWarning, setShowUsageWarning] = useState(false);
+  const [serviceStatusMessage, setServiceStatusMessage] = useState<string | null>(null);
   const { data: lifeNestTermsVersion } = useLifeNestTermsVersion();
   const activeLifeNestTermsVersion = lifeNestTermsVersion || 'v1';
   const warningShownRef = useRef(false);
   const blockedShownRef = useRef(false);
   const isInitialisedRef = useRef(false);
-  const inputTokenCost = useMemo(() => calculateLifeNestTokensForMessage(inputMessage), [inputMessage]);
+  const inputTokenCost = useMemo(() => calculateChatTokenCost(inputMessage), [inputMessage]);
   const remainingTokenCount = monthlyUsage?.totalTokensRemaining ?? 0;
   const textColour = useThemeColour({}, 'text');
   const inputBackgroundColour = useThemeColour({}, 'inputBackground');
@@ -94,7 +98,7 @@ export default function LifeNestScreen() {
   /** Picks the best starting model, preferring the user's saved setting when it is usable. */
   const resolveDefaultModel = useCallback((availableModels: string[], preferredModel?: string | null) => {
     const usableModels = availableModels.filter((candidate) => candidate && candidate !== 'None');
-    if (preferredModel && preferredModel !== 'None') {
+    if (preferredModel && usableModels.includes(preferredModel)) {
       return preferredModel;
     }
 
@@ -102,13 +106,45 @@ export default function LifeNestScreen() {
   }, []);
 
   /** Builds a user-facing date label for the next monthly usage reset. */
-  const getNextResetLabel = (periodEndIso?: string | null): string => {
+  const getNextResetLabel = useCallback((periodEndIso?: string | null): string => {
     if (periodEndIso) {
       return new Date(periodEndIso).toLocaleDateString([], { month: 'long', day: 'numeric' });
     }
 
     return 'when your subscription renews';
-  };
+  }, []);
+
+  /** Returns whether the current token balance has a known subscription-backed monthly reset. */
+  const hasMonthlyLifeNestReset = useCallback((usage?: LifeNestMonthlyUsageSummary | null): boolean => (
+    isPremium && Boolean(usage?.periodEnd && Number(usage.monthlyTokenAllowance ?? 0) > 0)
+  ), [isPremium]);
+
+  /** Builds the blocked-token message without implying a reset for non-subscribed users. */
+  const getTokenBlockedMessage = useCallback((usage?: LifeNestMonthlyUsageSummary | null): string => {
+    if (hasMonthlyLifeNestReset(usage)) {
+      return `You have used all available LifeNest tokens. Buy more tokens or wait for your monthly reset on ${getNextResetLabel(usage?.periodEnd)}.`;
+    }
+
+    return 'You have used all available LifeNest tokens. Subscribe for monthly tokens, or buy a token bundle to use LifeNest.';
+  }, [getNextResetLabel, hasMonthlyLifeNestReset]);
+
+  /** Builds the near-limit warning without implying a reset for non-subscribed users. */
+  const getTokenWarningMessage = useCallback((usage?: LifeNestMonthlyUsageSummary | null): string => {
+    if (hasMonthlyLifeNestReset(usage)) {
+      return `You are close to your monthly LifeNest usage limit. Your usage resets on ${getNextResetLabel(usage?.periodEnd)}.`;
+    }
+
+    return 'You are close to using all available LifeNest tokens. Subscribe for monthly tokens, or buy a token bundle if you need more.';
+  }, [getNextResetLabel, hasMonthlyLifeNestReset]);
+
+  /** Returns true when an error indicates RevenueCat blocked token spending. */
+  const isTokenSpendError = useCallback((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('INSUFFICIENT_LIFENEST_TOKENS')
+      || message.includes('INVALID_TOKEN_AMOUNT')
+      || message.includes('REVENUECAT_TOKEN_TRANSACTION_FAILED')
+      || message.includes('lifenest-token-spend');
+  }, []);
 
   useEffect(() => {
     if (isInitialisedRef.current) return;
@@ -117,15 +153,17 @@ export default function LifeNestScreen() {
 
     const init = async () => {
       try {
-        const [availableModels, chatBotSettings, userConversations, currentUsage] = await Promise.all([
-          lifeNestService.getModels(),
+        const [modelOptions, chatBotSettings, userConversations, currentUsage] = await Promise.all([
+          lifeNestService.getModelOptions(),
           settingsService.getChatBotSettings(),
           lifeNestService.getUserConversations(),
           lifeNestService.getCurrentMonthlyUsageSummary(),
         ]);
         if (isCancelled) return;
 
+        const availableModels = modelOptions.models;
         const defaultModel = resolveDefaultModel(availableModels, chatBotSettings.preferred_model);
+        setServiceStatusMessage(modelOptions.isFunctionAvailable ? null : modelOptions.errorMessage ?? 'LifeNest is temporarily unavailable. Please try again shortly.');
         setBackgroundColour(chatBotSettings.background_colour);
         setModels(availableModels.includes(defaultModel) ? availableModels : [defaultModel, ...availableModels]);
         setModel((prev) => prev ?? defaultModel);
@@ -147,7 +185,7 @@ export default function LifeNestScreen() {
           setShowWelcome(true);
         }
       } catch (error) {
-        console.error('LifeNest initialisation failed', error);
+        logError('LifeNestScreen.init', error, { requestedConversationId });
       }
     };
 
@@ -169,7 +207,7 @@ export default function LifeNestScreen() {
             setMonthlyUsage(currentUsage);
           }
         } catch (error) {
-          console.error('LifeNest usage refresh failed', error);
+          logError('LifeNestScreen.refreshUsage', error);
         }
       };
 
@@ -199,9 +237,9 @@ export default function LifeNestScreen() {
 
     if (hasReachedLimit && !blockedShownRef.current) {
       blockedShownRef.current = true;
-      Alert.alert(
-        'Monthly limit reached',
-        `You have reached your LifeNest limit for this month. Usage resets on ${getNextResetLabel(monthlyUsage.periodEnd)}.`,
+      showAlert(
+        hasMonthlyLifeNestReset(monthlyUsage) ? 'Monthly limit reached' : 'LifeNest tokens used',
+        getTokenBlockedMessage(monthlyUsage),
       );
     }
 
@@ -211,16 +249,16 @@ export default function LifeNestScreen() {
 
     if (isNearLimit && !warningShownRef.current) {
       warningShownRef.current = true;
-      Alert.alert(
-        'Monthly LifeNest limit warning',
-        `You are close to your monthly LifeNest usage limit. Your usage resets on ${getNextResetLabel(monthlyUsage.periodEnd)}.`,
+      showAlert(
+        hasMonthlyLifeNestReset(monthlyUsage) ? 'Monthly LifeNest limit warning' : 'LifeNest token warning',
+        getTokenWarningMessage(monthlyUsage),
       );
     }
 
     if (!isNearLimit) {
       warningShownRef.current = false;
     }
-  }, [monthlyUsage]);
+  }, [getTokenBlockedMessage, getTokenWarningMessage, hasMonthlyLifeNestReset, monthlyUsage]);
 
   useEffect(() => {
     if (!userInfo?.is_premium_user || !userInfo.id) return;
@@ -246,9 +284,23 @@ export default function LifeNestScreen() {
         lifenest_terms_version_accepted: activeLifeNestTermsVersion,
       });
     } catch (error) {
-      console.error('LifeNest terms acceptance failed', error);
+      logError('LifeNestScreen.handleAcceptTerms', error, { userId: userInfo.id, activeLifeNestTermsVersion });
     } finally {
       setShowTermsModal(false);
+    }
+  };
+
+  /** Opens hosted RevenueCat purchases on web and the native purchase screen elsewhere. */
+  const handleGetTokens = async () => {
+    const didOpenHostedPurchases = await openRevenueCatHostedPurchases({
+      appUserId: user?.id,
+      email: userInfo?.email_address || user?.email,
+      screen: 'tokens',
+      source: 'lifenest_get_tokens',
+    });
+
+    if (!didOpenHostedPurchases) {
+      router.push('/subscribe');
     }
   };
 
@@ -264,23 +316,28 @@ export default function LifeNestScreen() {
   const handleSendMessage = async (messageText?: string) => {
     const text = messageText ?? inputMessage.trim();
     if (!text) {
-      Alert.alert('Error', 'Please enter a message.');
+      showAlert('Error', 'Please enter a message.');
       return;
     }
 
     if (!model) {
-      Alert.alert('Error', 'Please select a model first.');
+      showAlert('Error', 'Please select a model first.');
       return;
     }
 
-    const messageTokenCost = calculateLifeNestTokensForMessage(text);
+    if (serviceStatusMessage) {
+      showAlert('LifeNest unavailable', serviceStatusMessage);
+      return;
+    }
+
+    const messageTokenCost = calculateChatTokenCost(text);
     if (monthlyUsage && monthlyUsage.totalTokensRemaining <= 0) {
-      Alert.alert('Out of tokens', 'You are out of tokens. Use the "Get Tokens" button to purchase more.');
+      showAlert('Out of tokens', getTokenBlockedMessage(monthlyUsage));
       return;
     }
 
     if (monthlyUsage && messageTokenCost > monthlyUsage.totalTokensRemaining) {
-      Alert.alert(
+      showAlert(
         'Not enough tokens',
         `This message needs ${messageTokenCost} LifeNest ${messageTokenCost === 1 ? 'token' : 'tokens'}, but you only have ${monthlyUsage.totalTokensRemaining} remaining.`,
       );
@@ -293,6 +350,7 @@ export default function LifeNestScreen() {
     setIsLoading(true);
 
     try {
+      setInputMessage('');
       const request: SendMessageRequest = {
         message: text,
         model,
@@ -326,6 +384,7 @@ export default function LifeNestScreen() {
 
       if (usage) {
         showTokenUsageToast(usage.tokensUsed);
+        await refreshVirtualCurrencies();
         const nextUsage = await lifeNestService.getCurrentMonthlyUsageSummary();
         setMonthlyUsage(nextUsage);
       }
@@ -338,8 +397,19 @@ export default function LifeNestScreen() {
         setSelectedConversationTitle(currentConversation.title || 'New conversation');
       }
     } catch (error) {
-      console.error('LifeNest message send failed', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      logError('LifeNestScreen.handleSendMessage', error, { selectedConversationId, model });
+      if (isTokenSpendError(error)) {
+        const nextUsage = await lifeNestService.getCurrentMonthlyUsageSummary().catch(() => null);
+        if (nextUsage) {
+          setMonthlyUsage(nextUsage);
+        }
+        showAlert(
+          'LifeNest tokens unavailable',
+          'We could not confirm enough LifeNest tokens for this message. Please check your token balance or try again shortly.',
+        );
+        return;
+      }
+      showAlert('Error', 'Failed to send message. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -360,8 +430,8 @@ export default function LifeNestScreen() {
       setSelectedConversationTitle(conversation.title || 'New conversation');
       setShowWelcome(history.length === 0);
     } catch (error) {
-      console.error('LifeNest conversation load failed', error);
-      Alert.alert('Error', 'Could not load that conversation.');
+      logError('LifeNestScreen.handleSelectConversation', error, { conversationId: conversation.id });
+      showAlert('Error', 'Could not load that conversation.');
     } finally {
       closeHistory();
     }
@@ -402,12 +472,12 @@ export default function LifeNestScreen() {
   /** Sends the selected report reason and optional details for an assistant response. */
   const handleSubmitReport = async () => {
     if (!reportingMessage || !selectedConversationId) {
-      Alert.alert('Error', 'Missing report context. Please try again.');
+      showAlert('Error', 'Missing report context. Please try again.');
       return;
     }
 
     if (!reportReason) {
-      Alert.alert('Error', 'Please choose a report reason.');
+      showAlert('Error', 'Please choose a report reason.');
       return;
     }
 
@@ -422,11 +492,15 @@ export default function LifeNestScreen() {
     try {
       setIsSubmittingReport(true);
       await lifeNestService.reportAssistantMessage(request);
-      Alert.alert('Report sent', 'Thank you. We have submitted this report for review.');
+      showAlert('Report sent', 'Thank you. We have submitted this report for review.');
       closeReportModal();
     } catch (error) {
-      console.error('LifeNest response report failed', error);
-      Alert.alert('Error', 'We could not send the report. Please try again.');
+      logError('LifeNestScreen.handleSubmitReport', error, {
+        conversationId: selectedConversationId,
+        messageId: reportingMessage.id,
+        reason: reportReason,
+      });
+      showAlert('Error', 'We could not send the report. Please try again.');
     } finally {
       setIsSubmittingReport(false);
     }
@@ -443,7 +517,7 @@ export default function LifeNestScreen() {
   const currentTitle = selectedConversationTitle || 'New conversation';
 
   return (
-    <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView enabled={Platform.OS === 'ios'} style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ThemedView style={styles.container}>
         <Modal visible={showTermsModal} transparent animationType="fade" onRequestClose={handleAcceptTerms}>
           <View style={styles.termsOverlay}>
@@ -457,34 +531,27 @@ export default function LifeNestScreen() {
                   You must not use LifeNest for medical diagnosis, legal or financial liability decisions, harmful actions, illegal activity, harassment, or crisis guidance.
                 </ThemedText>
                 <ThemedText style={styles.termsText}>
-                  For severe mental health or safety concerns, contact a qualified professional urgently. Use the app Links page for support resources. UK emergency support includes 999, NHS 111, and Samaritans 116 123.
+                  For severe mental health or safety concerns, contact a qualified professional urgently. Use the app Help page for support resources. UK emergency support includes 999, NHS 111, and Samaritans 116 123.
                 </ThemedText>
                 <ThemedText style={styles.termsText}>
                   Responses may be imperfect. Verify critical information before acting. Continued use means you agree to use LifeNest responsibly and only for its intended purpose.
                 </ThemedText>
               </ScrollView>
-              <Button title="I understand" onPress={handleAcceptTerms} />
+              <Button analyticsId="app_lifenest_index_i_understand" title="I understand" onPress={handleAcceptTerms} />
             </View>
           </View>
         </Modal>
 
         <ThemedView style={styles.header}>
           <ThemedView style={styles.headerLeft}>
-            <TouchableOpacity onPress={openHistory} style={styles.historyButton}>
-              <ThemedText style={styles.historyButtonText}>☰</ThemedText>
+            <TouchableOpacity analyticsId="app_lifenest_index_history_button" analyticsControlType="button" onPress={openHistory} style={styles.historyButton}>
+              <ThemedText style={styles.historyButtonText}>â˜°</ThemedText>
             </TouchableOpacity>
             <ThemedText type="title" style={styles.conversationTitle}>
               {truncateConversationTitle(currentTitle)}
             </ThemedText>
-            <Button
-              title="Get Tokens"
-              variant="secondary"
-              size="small"
-              onPress={() => {
-                router.push('/subscribe');
-              }}
-              style={{ marginLeft: 12 }}
-            />
+            <Button analyticsId="app_lifenest_index_get_tokens" title="Get Tokens" variant="secondary"
+              size="small" onPress={handleGetTokens} style={{ marginLeft: 12 }}/>
           </ThemedView>
         </ThemedView>
 
@@ -495,7 +562,7 @@ export default function LifeNestScreen() {
         >
           {showWelcome && messages.length === 0 ? (
             <ThemedView style={styles.welcomeCard}>
-              <ThemedText style={styles.welcomeEmoji}>🤖</ThemedText>
+              <ThemedText style={styles.welcomeEmoji}>ðŸ¤–</ThemedText>
               <ThemedText type="subtitle" style={styles.welcomeTitle}>
                 Welcome to LifeNest!
               </ThemedText>
@@ -525,15 +592,21 @@ export default function LifeNestScreen() {
               <ThemedText style={styles.modelSelectorHint}>
                 Your saved default is selected automatically.
               </ThemedText>
+              {serviceStatusMessage ? (
+                <ThemedText style={styles.serviceStatusText}>
+                  {serviceStatusMessage}
+                </ThemedText>
+              ) : null}
 
               <ThemedView style={styles.sampleQuestions}>
                 {SAMPLE_QUESTIONS.map((question) => (
-                  <Button
+                  <Button analyticsId="app_lifenest_index_handle_sample_question_press"
                     key={question}
                     title={question}
                     variant="secondary"
                     size="small"
                     onPress={() => handleSampleQuestionPress(question)}
+                    disabled={Boolean(serviceStatusMessage)}
                     style={styles.sampleButton}
                   />
                 ))}
@@ -563,7 +636,7 @@ export default function LifeNestScreen() {
                     {formatTime(message.created_at)}
                   </ThemedText>
                   {isAI && message.id > 0 ? (
-                    <TouchableOpacity onPress={() => openReportModal(message)} style={styles.reportButton}>
+                    <TouchableOpacity analyticsId="app_lifenest_index_report_button" analyticsControlType="button" onPress={() => openReportModal(message)} style={styles.reportButton}>
                       <ThemedText style={styles.reportButtonText}>Report response</ThemedText>
                     </TouchableOpacity>
                   ) : null}
@@ -590,19 +663,22 @@ export default function LifeNestScreen() {
         <ThemedView style={styles.inputContainer}>
           {monthlyUsage ? (
             <ThemedText style={styles.limitText}>
-              {monthlyUsage.monthlyTokenAllowance > 0
-                ? `Monthly tokens: ${Math.max(monthlyUsage.monthlyTokenAllowance - monthlyUsage.monthlyTokensUsed, 0)} / ${monthlyUsage.monthlyTokenAllowance} left - resets ${getNextResetLabel(monthlyUsage.periodEnd)} - Extra balance: ${monthlyUsage.purchasedTokensBalance}`
-                : `Extra balance: ${monthlyUsage.purchasedTokensBalance}`}
+              {`LifeNest token balance: ${monthlyUsage.totalTokensRemaining}`}
+            </ThemedText>
+          ) : null}
+          {serviceStatusMessage ? (
+            <ThemedText style={styles.serviceStatusText}>
+              {serviceStatusMessage}
             </ThemedText>
           ) : null}
           {showUsageWarning ? (
             <ThemedText style={styles.warningText}>
-              You are nearing your LifeNest token limit for this month.
+              {getTokenWarningMessage(monthlyUsage)}
             </ThemedText>
           ) : null}
           {isUsageBlocked ? (
             <ThemedText style={styles.blockedText}>
-              You have used all available LifeNest tokens. Buy more tokens or wait for the monthly reset.
+              {getTokenBlockedMessage(monthlyUsage)}
             </ThemedText>
           ) : null}
           {!isUsageBlocked && hasInsufficientTokensForMessage ? (
@@ -622,17 +698,17 @@ export default function LifeNestScreen() {
               maxLength={LIFENEST_MAX_INPUT_CHARACTERS}
               editable={!isLoading}
             />
-            <Button
+            <Button analyticsId="app_lifenest_index_send"
               title="Send"
               variant="primary"
               size="small"
               onPress={() => handleSendMessage()}
-              disabled={!inputMessage.trim() || !model || isLoading}
+              disabled={!inputMessage.trim() || !model || isLoading || Boolean(serviceStatusMessage)}
               style={styles.sendButton}
             />
           </ThemedView>
           <ThemedText style={styles.inputHelper}>
-            {`${inputMessage.length}/${LIFENEST_MAX_INPUT_CHARACTERS} characters • This message uses ${inputTokenCost} ${inputTokenCost === 1 ? 'token' : 'tokens'}`}
+            {`${inputMessage.length}/${LIFENEST_MAX_INPUT_CHARACTERS} characters â€¢ This message uses ${inputTokenCost} ${inputTokenCost === 1 ? 'token' : 'tokens'} including the 5-token response reserve`}
           </ThemedText>
         </ThemedView>
 
@@ -643,7 +719,7 @@ export default function LifeNestScreen() {
               <ThemedText style={styles.reportSubtitle}>Select a reason and send to our OpenAI feedback intake.</ThemedText>
               <ThemedView style={styles.reportReasonGrid}>
                 {REPORT_REASONS.map((reason) => (
-                  <Button
+                  <Button analyticsId="app_lifenest_index_set_report_reason"
                     key={reason}
                     title={reason}
                     variant={reportReason === reason ? 'primary' : 'secondary'}
@@ -663,7 +739,7 @@ export default function LifeNestScreen() {
                 editable={!isSubmittingReport}
               />
               <ThemedView style={styles.reportActions}>
-                <Button
+                <Button analyticsId="app_lifenest_index_cancel"
                   title="Cancel"
                   variant="secondary"
                   size="small"
@@ -671,7 +747,7 @@ export default function LifeNestScreen() {
                   disabled={isSubmittingReport}
                   style={styles.reportActionButton}
                 />
-                <Button
+                <Button analyticsId="app_lifenest_index_handle_submit_report"
                   title={isSubmittingReport ? 'Sending...' : 'Submit report'}
                   variant="primary"
                   size="small"
@@ -691,9 +767,9 @@ export default function LifeNestScreen() {
                 <ThemedText type="subtitle" style={styles.historyTitle}>
                   Your conversations
                 </ThemedText>
-                <Button title="Close" variant="secondary" size="small" onPress={closeHistory} />
+                <Button analyticsId="app_lifenest_index_close" title="Close" variant="secondary" size="small" onPress={closeHistory} />
               </ThemedView>
-              <Button
+              <Button analyticsId="app_lifenest_index_new_chat"
                 title="New chat"
                 variant="primary"
                 size="small"
@@ -708,7 +784,7 @@ export default function LifeNestScreen() {
                   </ThemedText>
                 ) : null}
                 {conversations.map((conversation) => (
-                  <TouchableOpacity
+                  <TouchableOpacity analyticsId="app_lifenest_index_history_item" analyticsControlType="list_item"
                     key={conversation.id}
                     style={styles.historyItem}
                     onPress={() => handleSelectConversation(conversation)}
@@ -717,7 +793,7 @@ export default function LifeNestScreen() {
                       {conversation.title || 'Untitled conversation'}
                     </ThemedText>
                     <ThemedText style={styles.historyItemMeta}>
-                      {`${formatDateShort(conversation.updated_at || conversation.created_at)} • ${conversation.model}`}
+                      {`${formatDateShort(conversation.updated_at || conversation.created_at)} â€¢ ${conversation.model}`}
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
@@ -765,6 +841,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   messagesContainer: {
+
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
     flex: 1,
     padding: 6,
   },
@@ -834,7 +914,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   userMessage: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#C7654B',
   },
   aiMessage: {},
   loadingMessageCard: {
@@ -898,6 +978,13 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     textAlign: 'center',
     marginBottom: 4,
+  },
+  serviceStatusText: {
+    fontSize: 12,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 18,
   },
   blockedText: {
     fontSize: 12,

@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { Alert, Image, Linking, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -8,7 +9,8 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { newsKeys, useNews } from '@/hooks/useNews';
 import { useThemeColour } from '@/hooks/useThemeColour';
 import { newsService } from '@/services/newsService';
-import { getCurrentCountryCodeFromLocale, isMyNewsAvailable } from '@/hooks/dataHandler';
+import { logError } from '@/services/crashLogger';
+import { getCurrentCountryCodeFromLocale, isMyNewsAvailable, showAlert } from '@/hooks/dataHandler';
 import { NewsCategory, NewsCategoryFilter } from '@/types/news';
 
 const CATEGORY_LABELS: Record<NewsCategory, string> = {
@@ -20,6 +22,7 @@ const CATEGORY_LABELS: Record<NewsCategory, string> = {
 
 const CATEGORY_ORDER: NewsCategory[] = ['business', 'strange', 'politics', 'uk'];
 
+/** Renders the filtered Sky News reader and reports fetch/render data failures. */
 export default function MyNewsScreen() {
   const queryClient = useQueryClient();
   const [selectedFilter, setSelectedFilter] = useState<NewsCategoryFilter>('all');
@@ -30,8 +33,7 @@ export default function MyNewsScreen() {
   const refreshNews = useCallback(async () => {
     const refreshed = await newsService.getNews();
     queryClient.setQueryData(newsKeys.all, refreshed);
-    await refetch();
-  }, [queryClient, refetch]);
+  }, [queryClient]);
   const backgroundColour = useThemeColour({}, 'background');
   const textSecondary = useThemeColour({}, 'textSecondary');
   const borderColour = useThemeColour({}, 'border');
@@ -40,7 +42,7 @@ export default function MyNewsScreen() {
   const onOpenArticle = useCallback(async (url: string) => {
     const canOpen = await Linking.canOpenURL(url);
     if (!canOpen) {
-      Alert.alert('Unable to open link', 'Please try again later.');
+      showAlert('Unable to open link', 'Please try again later.');
       return;
     }
     await Linking.openURL(url);
@@ -49,33 +51,40 @@ export default function MyNewsScreen() {
   const onRefresh = useCallback(async () => {
     try {
       await refreshNews();
-    } catch {
-      await refetch();
+    } catch (refreshError) {
+      logError('MyNewsScreen.onRefresh.refreshNews', refreshError, { countryCode });
+      const result = await refetch();
+      if (result.error) {
+        logError('MyNewsScreen.onRefresh.refetch', result.error, { countryCode });
+      }
     }
-  }, [refreshNews, refetch]);
+  }, [countryCode, refreshNews, refetch]);
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
-      // Only refresh while this screen is focused.
+      // Keep focused news fresh without refetching on every navigation focus.
       const refreshWhileFocused = async () => {
-        if (!isActive) return;
+        if (!isActive || !data) return;
         try {
           await refreshNews();
-        } catch {
-          await refetch();
+        } catch (refreshError) {
+          logError('MyNewsScreen.focusRefresh.refreshNews', refreshError, { countryCode });
+          const result = await refetch();
+          if (result.error) {
+            logError('MyNewsScreen.focusRefresh.refetch', result.error, { countryCode });
+          }
         }
       };
 
-      refreshWhileFocused();
       const intervalId = setInterval(refreshWhileFocused, 10 * 60 * 1000);
 
       return () => {
         isActive = false;
         clearInterval(intervalId);
       };
-    }, [refreshNews, refetch])
+    }, [countryCode, data, refreshNews, refetch])
   );
 
   const filteredCategories = useMemo(() => {
@@ -91,6 +100,37 @@ export default function MyNewsScreen() {
     return 'News information is not available right now.';
   }, [error]);
 
+  const articleCounts = useMemo(() => {
+    return (data?.categories || []).reduce<Record<string, number>>((counts, categoryGroup) => {
+      counts[categoryGroup.category] = categoryGroup.articles.length;
+      return counts;
+    }, {});
+  }, [data]);
+
+  const totalArticleCount = useMemo(() => {
+    return Object.values(articleCounts).reduce((total, count) => total + count, 0);
+  }, [articleCounts]);
+
+  useEffect(() => {
+    if (!isRegionSupported) {
+      console.warn('MyNewsScreen.regionUnsupported', { countryCode });
+    }
+  }, [countryCode, isRegionSupported]);
+
+  useEffect(() => {
+    if (!error) return;
+    logError('MyNewsScreen.useNews', error, { countryCode });
+  }, [countryCode, error]);
+
+  useEffect(() => {
+    if (!data || data.categories.length === 0 || totalArticleCount > 0) return;
+    logError('MyNewsScreen.noArticles', new Error('News data loaded with no articles.'), {
+      countryCode,
+      articleCounts,
+      fetchedAt: data.fetchedAt,
+    });
+  }, [articleCounts, countryCode, data, totalArticleCount]);
+
   if (loading && !data) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -101,21 +141,17 @@ export default function MyNewsScreen() {
 
   return (
     <View style={[styles.screenContainer, { backgroundColor: backgroundColour }]}>
-      <ScrollView
-        style={!isRegionSupported ? styles.blurredContent : undefined}
-        scrollEnabled={isRegionSupported}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} enabled={isRegionSupported} />}
-      >
+      <ScrollView style={!isRegionSupported ? styles.blurredContent : undefined} scrollEnabled={isRegionSupported} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} enabled={isRegionSupported} />}>
         <ThemedView style={styles.container} darkColour={backgroundColour} lightColour={backgroundColour}>
           <ThemedText type="subtitle" style={styles.title}>My News</ThemedText>
           <ThemedText style={[styles.helper, { color: textSecondary }]}>Tap a card to open the full article in your browser.</ThemedText>
 
           <View style={styles.filterRow}>
-            <TouchableOpacity style={[styles.filterButton, { borderColor: borderColour, backgroundColor: selectedFilter === 'all' ? cardBackground : 'transparent' }]} onPress={() => setSelectedFilter('all')}>
+            <TouchableOpacity analyticsId="app_mynews_index_filter_button_2" analyticsControlType="filter" style={[styles.filterButton, { borderColor: borderColour, backgroundColor: selectedFilter === 'all' ? cardBackground : 'transparent' }]} onPress={() => setSelectedFilter('all')}>
               <ThemedText style={styles.filterText}>All</ThemedText>
             </TouchableOpacity>
             {CATEGORY_ORDER.map((category) => (
-              <TouchableOpacity key={category} style={[styles.filterButton, { borderColor: borderColour, backgroundColor: selectedFilter === category ? cardBackground : 'transparent' }]} onPress={() => setSelectedFilter(category)}>
+              <TouchableOpacity analyticsId="app_mynews_index_filter_button" analyticsControlType="filter" key={category} style={[styles.filterButton, { borderColor: borderColour, backgroundColor: selectedFilter === category ? cardBackground : 'transparent' }]} onPress={() => setSelectedFilter(category)}>
                 <ThemedText style={styles.filterText}>{CATEGORY_LABELS[category]}</ThemedText>
               </TouchableOpacity>
             ))}
@@ -127,7 +163,7 @@ export default function MyNewsScreen() {
             <View key={categoryGroup.category} style={styles.section}>
               <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{CATEGORY_LABELS[categoryGroup.category]}</ThemedText>
               {categoryGroup.articles.slice(0, 10).map((article) => (
-                <TouchableOpacity key={article.id} style={[styles.card, { backgroundColor: cardBackground, borderColor: borderColour }]} onPress={() => onOpenArticle(article.url)} accessibilityRole="link">
+                <TouchableOpacity analyticsId="app_mynews_index_card" analyticsControlType="card" key={article.id} style={[styles.card, { backgroundColor: cardBackground, borderColor: borderColour }]} onPress={() => onOpenArticle(article.url)} accessibilityRole="link">
                   {article.imageUrl ? (
                     <Image source={{ uri: article.imageUrl }} style={styles.image} resizeMode="cover" />
                   ) : (
@@ -172,8 +208,11 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flex: 1,
+    width: '100%',
   },
   container: {
+    width: Platform.OS === 'web' ? '70%' : '100%',
+    alignSelf: 'center',
     padding: 16,
     paddingBottom: 24,
   },
@@ -251,7 +290,7 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   regionOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',

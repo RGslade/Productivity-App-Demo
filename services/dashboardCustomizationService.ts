@@ -4,6 +4,7 @@ export type DashboardCardKey =
   | 'tasks'
   | 'checklists'
   | 'finances'
+  | 'appNews'
   | 'news'
   | 'grades'
   | 'notes'
@@ -16,7 +17,7 @@ export type DashboardLayoutState = {
 };
 
 const DEFAULT_LAYOUT: DashboardLayoutState = {
-  order: ['tasks', 'checklists', 'finances', 'news', 'grades', 'notes', 'lifenest', 'movingOut'],
+  order: ['tasks', 'checklists', 'finances', 'appNews', 'news', 'grades', 'notes', 'lifenest', 'movingOut'],
   hidden: ['movingOut'],
 };
 

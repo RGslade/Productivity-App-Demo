@@ -1,17 +1,18 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useState } from 'react';
 import {
+  Platform,
   View,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   Keyboard,
-  Alert,
 } from 'react-native';
 import { router, useRouter } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button, Card, Input, LoadingSpinner } from '@/components/ui';
 import { useThemeColour } from '@/hooks/useThemeColour';
+import { showAlert } from '@/hooks/dataHandler';
 import { useAuth } from '@/hooks/useAuth';
 import { useJobs } from '@/hooks/useJobs';
 import { useLocationHandler } from '@/hooks/locationHandler';
@@ -42,7 +43,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+    <TouchableOpacity analyticsId="app_jobsearch_index_job_card" analyticsControlType="card" onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.jobCard}>
         <View style={styles.jobHeader}>
           <View style={{ flex: 1 }}>
@@ -75,7 +76,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
             <View style={styles.jobDetailRow}>
               <Ionicons name="cash-outline" size={14} color={textColor} />
               <ThemedText style={styles.detailText}>
-                £{job.salary_min.toLocaleString()} - £{job.salary_max.toLocaleString()}
+                Â£{job.salary_min.toLocaleString()} - Â£{job.salary_max.toLocaleString()}
               </ThemedText>
             </View>
           )}
@@ -159,7 +160,7 @@ export default function JobSearchScreen() {
    */
   const handlePostcodeLookup = async () => {
     if (!postcodeInput.trim()) {
-      Alert.alert('Error', 'Please enter a postcode');
+      showAlert('Error', 'Please enter a postcode');
       return;
     }
     const result = await getLocationFromPostcode(postcodeInput);
@@ -174,12 +175,12 @@ export default function JobSearchScreen() {
   const handleSearch = async () => {
     // Validation
     if (!searchTerm.trim()) {
-      Alert.alert('Error', 'Please enter a job description or keyword');
+      showAlert('Error', 'Please enter a job description or keyword');
       return;
     }
 
     if (!location) {
-      Alert.alert('Error', 'Please provide a location (GPS or postcode)');
+      showAlert('Error', 'Please provide a location (GPS or postcode)');
       return;
     }
 
@@ -196,7 +197,7 @@ export default function JobSearchScreen() {
       searchJobs(searchParams);
     } catch (err) {
       console.error('Search error:', err);
-      Alert.alert('Search Error', 'Failed to search for jobs');
+      showAlert('Search Error', 'Failed to search for jobs');
     }
   };
 
@@ -259,7 +260,7 @@ export default function JobSearchScreen() {
               {location.postcode || location.address}
             </ThemedText>
           </View>
-          <TouchableOpacity onPress={clearLocation}>
+          <TouchableOpacity analyticsId="app_jobsearch_index_clear_location" analyticsControlType="button" onPress={clearLocation}>
             <Ionicons name="close-circle-outline" size={24} color={textColor} />
           </TouchableOpacity>
         </View>
@@ -318,7 +319,7 @@ export default function JobSearchScreen() {
           <ThemedText style={styles.cardLabel}>Where do you want to work?</ThemedText>
 
           {/* Use Device Location Button */}
-          <Button
+          <Button analyticsId="app_jobsearch_index_handle_request_location"
             variant="secondary"
             size="medium"
             onPress={handleRequestLocation}
@@ -346,7 +347,7 @@ export default function JobSearchScreen() {
               editable={!isLoadingLocation && !isSearching}
               style={{ marginRight: 8, flex: 1 }}
             />
-            <Button
+            <Button analyticsId="app_jobsearch_index_search"
               variant="secondary"
               size="medium" title="Search"
               onPress={handlePostcodeLookup}
@@ -391,7 +392,7 @@ export default function JobSearchScreen() {
         {renderErrorMessage()}
 
         {/* Search Button */}
-        <Button
+        <Button analyticsId="app_jobsearch_index_search_jobs"
           variant="primary"
           size="medium" title="Search Jobs"
           onPress={handleSearch}
@@ -432,7 +433,7 @@ export default function JobSearchScreen() {
                   <ThemedText type="subtitle">
                     {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'} found
                   </ThemedText>
-                  <TouchableOpacity onPress={handleClearSearch}>
+                  <TouchableOpacity analyticsId="app_jobsearch_index_clear_button" analyticsControlType="button" onPress={handleClearSearch}>
                     <ThemedText style={styles.clearButton}>Clear</ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -468,6 +469,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? '70%' : 1200,
+    alignSelf: 'center',
     padding: 16,
   },
   header: {

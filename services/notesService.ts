@@ -21,7 +21,9 @@ class NotesService {
 
   /** Creates a saved note record for the current user. */
   async createNote(request: CreateNoteRequest): Promise<Note> {
-    const { data, error } = await databaseService.insertAndSelect<Note>('Notes', { title: request.title, content: request.content });
+    const { data, error } = await databaseService.insertAndSelect<Note>('Notes', {
+      title: request.title,
+      content: request.content    });
     if (error) {
       console.error('notesService.createNote', error);
       throw error;

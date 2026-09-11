@@ -161,6 +161,7 @@ export async function sendScheduledNotification(title: string, body: string, sec
       //   type: TriggerType.TIMESTAMP,
       //   timestamp: Date.now() + seconds * 1000,
       // };
+      //
       // await notifee.createTriggerNotification(
       //   {
       //     title,

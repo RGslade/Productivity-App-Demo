@@ -1,17 +1,14 @@
 import { ChatFeedbackReportRequest, ChatMessage, Conversation, GeneratedChecklist, LifeNestMonthlyUsageSummary, LifeNestUsageEvent, SendMessageRequest, SendMessageResponse } from '@/types/chatBot';
 import databaseService from './databaseService';
-import chatBotHook from '@/hooks/Chatbot';
 import { userService } from './userService';
 import { validateAuthUser } from '@/hooks/dataHandler';
 import {
   calculateLifeNestTokensForMessage,
   getLifeNestUsageWindow,
-  LIFENEST_MONTHLY_TOKEN_ALLOWANCE,
 } from '@/constants/lifeNestUsage';
-import {
-  subscriptionService,
-} from './subscriptionService';
-import { BackendFunctions } from '@/constants/backendResources';
+import { calculateChatTokenCost, getTokenCost } from '@/constants/tokenUsage';
+import { logError } from './crashLogger';
+import { createTokenOperationId, tokenUsageService, TokenSpendReceipt } from './tokenUsageService';
 
 interface CreateConversationFunctionResponse {
   conversationId: string;
@@ -20,6 +17,12 @@ interface CreateConversationFunctionResponse {
 interface ListModelsFunctionResponse {
   models: string[];
 }
+
+type LifeNestModelOptions = {
+  models: string[];
+  isFunctionAvailable: boolean;
+  errorMessage?: string;
+};
 
 interface SendMessageFunctionResponse {
   id: string;
@@ -51,6 +54,9 @@ type LifeNestMonthlyUsageRow = {
   purchased_tokens_used: number;
 };
 
+const DEFAULT_LIFENEST_MODEL = 'gpt-5.6-luna';
+const FALLBACK_LIFENEST_MODELS = [DEFAULT_LIFENEST_MODEL];
+
 class LifeNestService {
   /**
    * Loads the current user's single monthly usage row.
@@ -68,8 +74,7 @@ class LifeNestService {
     const monthlyTokensUsed = Number(row.monthly_tokens_used ?? 0);
     const purchasedTokensBalance = Number(row.purchased_tokens_balance ?? 0);
     const purchasedTokensUsed = Number(row.purchased_tokens_used ?? 0);
-    const remainingIncludedTokens = Math.max(monthlyTokenAllowance - monthlyTokensUsed, 0);
-    const totalTokensRemaining = remainingIncludedTokens + purchasedTokensBalance;
+    const totalTokensRemaining = purchasedTokensBalance;
     const totalTokensUsed = monthlyTokensUsed + purchasedTokensUsed;
     const totalTokensAvailable = totalTokensUsed + totalTokensRemaining;
 
@@ -88,35 +93,28 @@ class LifeNestService {
   }
 
   /**
-   * Loads the user's total purchased-token spend across all recorded periods.
-   */
-  private async getLifetimePurchasedTokensUsed() {
-    const { data } = await databaseService.getAll<LifeNestMonthlyUsageRow>('LifeNestMonthlyUsage', 'period_start');
-    return (data ?? []).reduce((total, row) => total + Number(row.purchased_tokens_used ?? 0), 0);
-  }
-
-  /**
-   * Reads the granted purchased-token balance from RevenueCat virtual currency.
-   */
-  private async getRevenueCatPurchasedTokenGrantBalance() {
-    try {
-      const virtualCurrency = await subscriptionService.getLifeNestVirtualCurrency();
-      return Number(virtualCurrency?.balance ?? 0);
-    } catch (error) {
-      console.error('Operation failed');
-      return 0;
-    }
-  }
-
-  /**
-   * Calls the backend AI function and returns typed payload data.
+   * Calls the LifeNest Edge Function and returns typed payload data.
    */
   private async callLifeNestFunction<T>(payload: object): Promise<T> {
-    return databaseService.executeFunction(BackendFunctions.aiAssistant, payload) as Promise<T>;
+    return databaseService.executeFunction('lifenest-ai', payload) as Promise<T>;
   }
 
   /**
-   * Creates a persistent AI conversation via the backend function.
+   * Detects network/CORS-style Edge Function failures that should be shown as availability problems.
+   */
+  private isLifeNestFunctionUnavailable(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalisedMessage = message.toLowerCase();
+
+    return normalisedMessage.includes('failed to fetch')
+      || normalisedMessage.includes('failed to send a request to the edge function')
+      || normalisedMessage.includes('functionsfetcherror')
+      || normalisedMessage.includes('network request failed')
+      || normalisedMessage.includes('load failed');
+  }
+
+  /**
+   * Creates a persistent OpenAI conversation via the LifeNest Edge Function.
    */
   private async createOpenAIConversation(): Promise<string> {
     const data = await this.callLifeNestFunction<CreateConversationFunctionResponse>({
@@ -172,8 +170,10 @@ class LifeNestService {
         row.period_key !== null ||
         row.period_start !== null ||
         row.period_end !== null ||
-        Number(row.monthly_token_allowance ?? 0) !== 0 ||
-        Number(row.monthly_tokens_used ?? 0) !== 0;
+        row.period_key !== null ||
+        row.period_start !== null ||
+        row.period_end !== null ||
+        Number(row.monthly_token_allowance ?? 0) !== 0;
 
       if (!shouldClear) return row;
 
@@ -182,7 +182,6 @@ class LifeNestService {
         period_start: null,
         period_end: null,
         monthly_token_allowance: 0,
-        monthly_tokens_used: 0,
       }, undefined, 'id', row.id);
 
       return {
@@ -191,18 +190,15 @@ class LifeNestService {
         period_start: null,
         period_end: null,
         monthly_token_allowance: 0,
-        monthly_tokens_used: 0,
       };
     }
 
     const { periodKey, start, end } = getLifeNestUsageWindow(new Date(options.subscriptionStartedAt));
-    const periodChanged = row.period_key !== periodKey;
     await databaseService.updateTable('LifeNestMonthlyUsage', {
       period_key: periodKey,
       period_start: start.toISOString(),
       period_end: end.toISOString(),
-      monthly_token_allowance: LIFENEST_MONTHLY_TOKEN_ALLOWANCE,
-      monthly_tokens_used: periodChanged ? 0 : row.monthly_tokens_used,
+      monthly_token_allowance: 0,
     }, undefined, 'id', row.id);
 
     return {
@@ -210,8 +206,7 @@ class LifeNestService {
       period_key: periodKey,
       period_start: start.toISOString(),
       period_end: end.toISOString(),
-      monthly_token_allowance: LIFENEST_MONTHLY_TOKEN_ALLOWANCE,
-      monthly_tokens_used: periodChanged ? 0 : row.monthly_tokens_used,
+      monthly_token_allowance: 0,
     };
   }
 
@@ -220,51 +215,14 @@ class LifeNestService {
    */
   async getCurrentMonthlyUsageSummary(): Promise<LifeNestMonthlyUsageSummary> {
     const row = await this.getOrCreateCurrentMonthlyUsageRow();
-    const purchasedTokensGranted = await this.getRevenueCatPurchasedTokenGrantBalance();
-    const purchasedTokensUsedLifetime = await this.getLifetimePurchasedTokensUsed();
-    const purchasedTokensBalance = Math.max(purchasedTokensGranted - purchasedTokensUsedLifetime, 0);
+    const revenueCatTokenBalance = await tokenUsageService.getBalance();
 
     return this.mapUsageSummary({
       ...row,
-      purchased_tokens_balance: purchasedTokensBalance,
+      monthly_token_allowance: 0,
+      monthly_tokens_used: 0,
+      purchased_tokens_balance: revenueCatTokenBalance,
     });
-  }
-
-  /**
-   * Stores LifeNest token usage for the active month and returns the updated summary.
-   */
-  async recordUsage(event: LifeNestUsageEvent): Promise<LifeNestMonthlyUsageSummary> {
-    const existing = await this.getOrCreateCurrentMonthlyUsageRow();
-    const currentSummary = await this.getCurrentMonthlyUsageSummary();
-    if (!existing?.id) {
-      throw new Error('LifeNest usage summary was not found for update.');
-    }
-
-    const monthlyTokenAllowance = Number(existing.monthly_token_allowance ?? 0);
-    const monthlyTokensUsed = Number(existing.monthly_tokens_used ?? 0);
-    const purchasedTokensBalance = Number(currentSummary.purchasedTokensBalance ?? 0);
-    const purchasedTokensUsed = Number(existing.purchased_tokens_used ?? 0);
-    const remainingIncludedTokens = Math.max(monthlyTokenAllowance - monthlyTokensUsed, 0);
-
-    if (event.tokensUsed > remainingIncludedTokens + purchasedTokensBalance) {
-      throw new Error('Not enough LifeNest tokens remain for this message.');
-    }
-
-    const includedTokensToUse = Math.min(event.tokensUsed, remainingIncludedTokens);
-    const purchasedTokensToUse = Math.max(event.tokensUsed - includedTokensToUse, 0);
-
-    const updatedRow: Partial<LifeNestMonthlyUsageRow> = {
-      monthly_tokens_used: monthlyTokensUsed + includedTokensToUse,
-      purchased_tokens_used: purchasedTokensUsed + purchasedTokensToUse,
-    };
-
-    await databaseService.updateTable('LifeNestMonthlyUsage', {
-      monthly_token_allowance: monthlyTokenAllowance,
-      monthly_tokens_used: updatedRow.monthly_tokens_used,
-      purchased_tokens_used: updatedRow.purchased_tokens_used,
-    }, undefined, 'id', existing.id);
-
-    return this.getCurrentMonthlyUsageSummary();
   }
 
   /**
@@ -276,9 +234,10 @@ class LifeNestService {
       return null;
     }
     return {
-      model: (fallbackModel || 'gpt-4o').toLowerCase(),
-      tokensUsed,
+      model: (fallbackModel || DEFAULT_LIFENEST_MODEL).toLowerCase(),
+      tokensUsed: calculateChatTokenCost(message),
       inputCharacterCount: message.trim().length,
+      feature: 'chat_message',
     };
   }
 
@@ -286,30 +245,44 @@ class LifeNestService {
   /** Generates or enhances a checklist through LifeNest and charges one token. */
   async generateChecklist(title: string, items: string[]): Promise<GeneratedChecklist> {
     const usageEvent: LifeNestUsageEvent = {
-      model: 'gpt-4o',
-      tokensUsed: 1,
+      model: DEFAULT_LIFENEST_MODEL,
+      tokensUsed: getTokenCost('checklist_enhancement'),
       inputCharacterCount: `${title}\n${items.join('\n')}`.trim().length,
+      feature: 'checklist_enhancement',
     };
     const usageSummary = await this.getCurrentMonthlyUsageSummary();
     if (usageSummary.totalTokensRemaining < usageEvent.tokensUsed) {
       throw new Error('Not enough LifeNest tokens remain for this checklist.');
     }
 
-    const openAIConversationId = await this.createOpenAIConversation();
-    const response = await this.callLifeNestFunction<SendMessageFunctionResponse>({
-      action: 'send_message',
-      model: 'gpt-4o',
-      conversationId: openAIConversationId,
-      message: JSON.stringify({ title: title.trim(), items: items.map((item) => item.trim()).filter(Boolean) }),
-      instructions: [
-        'You create practical checklists for young adults preparing for independent living.',
-        'Return only JSON with a string title and an items string array.',
-        'If the user gives no useful input, choose a helpful independent-living checklist topic.',
-        'If the user gives a title or items, infer their intent and complete the checklist.',
-        'Keep each item short, actionable, UK-aware where relevant, and avoid duplicates.',
-        'Return 8 to 14 items.',
-      ].join(' '),
-    });
+    const spend = await tokenUsageService.spend({ feature: 'checklist_enhancement', operationId: createTokenOperationId('checklist'), inputCharacterCount: usageEvent.inputCharacterCount, model: usageEvent.model });
+
+    let response: SendMessageFunctionResponse;
+    try {
+      const openAIConversationId = await this.createOpenAIConversation();
+      response = await this.callLifeNestFunction<SendMessageFunctionResponse>({
+        action: 'send_message',
+        mode: 'checklist',
+        model: DEFAULT_LIFENEST_MODEL,
+        conversationId: openAIConversationId,
+        message: JSON.stringify({ title: title.trim(), items: items.map((item) => item.trim()).filter(Boolean) }),
+        instructions: [
+          'You create practical checklists for young adults preparing for independent living.',
+          'Return only JSON with a string title and an items string array.',
+          'If the user gives no useful input, choose a helpful independent-living checklist topic.',
+          'If the user gives a title or items, infer their intent and complete the checklist.',
+          'Keep each item short, actionable, UK-aware where relevant, and avoid duplicates.',
+          'Return 8 to 14 items.',
+        ].join(' '),
+      });
+    } catch (error) {
+      await tokenUsageService.refund(spend).catch((refundError) => {
+        logError('LifeNestService.generateChecklist.refundFailed', refundError, {
+          spendIdempotencyKey: spend.idempotencyKey,
+        });
+      });
+      throw error;
+    }
 
     let outputText = '';
     for (const output of response.output || []) {
@@ -325,7 +298,6 @@ class LifeNestService {
       ? parsed.items.map((item) => String(item).trim()).filter(Boolean)
       : items.map((item) => item.trim()).filter(Boolean);
 
-    await this.recordUsage(usageEvent);
     return { title: nextTitle, items: nextItems, usage: usageEvent };
   }
 
@@ -334,7 +306,7 @@ class LifeNestService {
     const { data, error } = await databaseService.insertAndSelect<Conversation>('Conversations', { openai_conversation_id: openaiConvId, model, });
 
     if (error || !data) {
-      console.error('Operation failed');
+      logError('LifeNestService.createConversation', error, { model });
       throw new Error('Could not create conversation.');
     }
 
@@ -343,7 +315,7 @@ class LifeNestService {
 
   private async getOrCreateConversation(conversationId: string, model: string): Promise<Conversation> {
     if (!model || model === 'None') {
-      model = "gpt-4o";//Need a default model method for 1 place to update
+      model = DEFAULT_LIFENEST_MODEL;
     }
     if (!conversationId || conversationId === '') {
       return this.createConversation(model);
@@ -361,14 +333,14 @@ class LifeNestService {
     const { data, error } = await databaseService.getAll<Conversation>('Conversations', 'updated_at');
 
     if (error) {
-      console.error('Operation failed');
+      logError('LifeNestService.getUserConversations', error);
       throw error;
     }
 
     if (!data || data.length === 0) {
       // let model = await settingsService.getChatBotSettings()
       //   .then(settings => settings.preferred_model)
-      //   if(model === 'None' || !model) model = 'gpt-4o';
+      //   if(model === 'None' || !model) model = DEFAULT_LIFENEST_MODEL;
       // const newConv = await this.createConversation(model);                Decided to go in a different direction for this feature scenario. This helps the dashboard but also
       // return [newConv];                                                    makes more sense. if no chats, the user creates one by sending a message
     }
@@ -395,17 +367,39 @@ class LifeNestService {
     }));
   }
 
-  async getModels() {
+  async getModelOptions(): Promise<LifeNestModelOptions> {
     try {
       const data = await this.callLifeNestFunction<ListModelsFunctionResponse>({
         action: 'list_models',
       });
-      return data.models ?? ['None'];
+
+      return {
+        models: data.models?.length ? data.models : FALLBACK_LIFENEST_MODELS,
+        isFunctionAvailable: true,
+      };
     }
     catch (error) {
-      console.error('Operation failed');
-      return ['None'];
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (this.isLifeNestFunctionUnavailable(error)) {
+        console.warn('LifeNest model list unavailable; using fallback model until the Edge Function is reachable.', {
+          message,
+        });
+      } else {
+        logError('LifeNestService.getModelOptions', error, { message });
+      }
+
+      return {
+        models: FALLBACK_LIFENEST_MODELS,
+        isFunctionAvailable: false,
+        errorMessage: 'LifeNest is temporarily unavailable. Please try again shortly.',
+      };
     }
+  }
+
+  async getModels() {
+    const options = await this.getModelOptions();
+    return options.models;
   }
 
   async sendMessage(request: SendMessageRequest): Promise<Conversation> {
@@ -421,16 +415,40 @@ class LifeNestService {
   async receiveMessage(request: SendMessageRequest): Promise<SendMessageResponse> {
     const { message, model, conversationId } = request;
     let conv = await this.getOrCreateConversation(conversationId, model);
+    const usageEvent = this.buildUsageEvent(message, conv.model);
+    let spend: TokenSpendReceipt | null = null;
 
-    // Send to the backend so private keys stay server-side.
-    const response = await this.callLifeNestFunction<SendMessageFunctionResponse>({
-      action: 'send_message',
-      model: conv.model,
-      conversationId: conv.openai_conversation_id,
-      message,
-      instructions: chatBotHook.instructions,
-    });
+    if (usageEvent) {
+      spend = await tokenUsageService.spend({
+        feature: 'chat_message',
+        operationId: createTokenOperationId(`message-${conv.id}`),
+        inputCharacterCount: usageEvent.inputCharacterCount,
+        model: usageEvent.model,
+      });
+    }
 
+    // Send to OpenAI via Edge Function so private keys stay server-side.
+    let response: SendMessageFunctionResponse;
+    try {
+      response = await this.callLifeNestFunction<SendMessageFunctionResponse>({
+        action: 'send_message',
+        model: conv.model,
+        conversationId: conv.openai_conversation_id,
+        message,
+      });
+    } catch (error) {
+      if (usageEvent && spend) {
+        await tokenUsageService.refund(spend).catch((refundError) => {
+          logError('LifeNestService.receiveMessage.refundFailed', refundError, {
+            conversationId: conv.id,
+            spendIdempotencyKey: spend?.idempotencyKey,
+          });
+        });
+      }
+      throw error;
+    }
+
+    try {
     const responseTimestamp = typeof response?.created_at === 'number'
       ? new Date(response.created_at * 1000).toISOString()
       : new Date().toISOString();
@@ -464,12 +482,15 @@ class LifeNestService {
     // Update conversation
     await databaseService.updateTable('Conversations', { updated_at: responseTimestamp, last_response_id: response.id, title: conv.title ?? message.slice(0, 30) }, undefined, 'id', conv.id.toString());
 
-    const usageEvent = this.buildUsageEvent(message, conv.model);
-    if (usageEvent) {
-      await this.recordUsage(usageEvent);
-    }
-
     return { conversationId: conv.id, aiResponse: aiMessages, usage: usageEvent };
+    } catch (error) {
+      if (usageEvent && spend) {
+        await tokenUsageService.refund(spend).catch((refundError) => {
+          logError('LifeNestService.receiveMessage.responseFlowRefundFailed', refundError, { conversationId: conv.id, spendIdempotencyKey: spend?.idempotencyKey });
+        });
+      }
+      throw error;
+    }
   }
 
   async deleteConversation(conversationId: number): Promise<void> {

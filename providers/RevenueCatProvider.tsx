@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import Purchases, {
   CustomerInfo,
   CustomerInfoUpdateListener,
@@ -9,10 +9,12 @@ import Purchases, {
 import { PAYWALL_RESULT } from "react-native-purchases-ui";
 
 import { useAuthContext } from "@/providers/AuthProvider";
+import { showAlert } from "@/hooks/dataHandler";
 import { lifeNestService } from "@/services/lifeNestService";
-import { userService } from "@/services/userService";
+import { isAuthenticationRequiredError, userService } from "@/services/userService";
 import {
   deriveSubscriptionProfile,
+  getCustomerInfoDebugSnapshot,
   isAnonymousRevenueCatAppUserId,
   isProEntitlementActive,
   resolveLifeNestVirtualCurrency,
@@ -80,9 +82,9 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
   const refreshCustomerInfo = useCallback(async () => {
     if (!isSupported || !isConfigured) return null;
-    const nextCustomerInfo = await subscriptionService.getCustomerInfo();
-    setCustomerInfo(nextCustomerInfo);
-    return nextCustomerInfo;
+    const info = await subscriptionService.getCustomerInfo();
+    setCustomerInfo(info);
+    return info;
   }, [isConfigured, isSupported]);
 
   const refreshOfferings = useCallback(async () => {
@@ -113,7 +115,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     }
     lastLoggedInUserIdRef.current = user.id;
     return true;
-  }, [isConfigured, isSupported, user?.id]);
+  }, [isConfigured, isSupported, user]);
 
   useEffect(() => {
     /**
@@ -141,8 +143,8 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!isSupported || !isConfigured) return;
 
-    listenerRef.current = (nextCustomerInfo) => {
-      setCustomerInfo(nextCustomerInfo);
+    listenerRef.current = (info) => {
+      setCustomerInfo(info);
     };
 
     Purchases.addCustomerInfoUpdateListener(listenerRef.current);
@@ -228,7 +230,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         await userService.updateProfile({is_premium_user: subscriptionProfile.isPremium, subscription_status: subscriptionProfile.status, subscription_product_id: subscriptionProfile.productId, subscription_provider: subscriptionProfile.provider,});
         await refreshAuth();
       } catch (error) {
-        console.error("RevenueCat profile sync failed", error);
+        if (!isAuthenticationRequiredError(error)) console.error("RevenueCat profile sync failed", error);
       } finally {
         isSyncingProfileRef.current = false;
       }
@@ -243,11 +245,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
       try {
         await lifeNestService.syncSubscriptionUsagePeriod({
-          isSubscriptionActive: subscriptionProfile.isPremium && subscriptionProfile.status === "active",
+          isSubscriptionActive: subscriptionProfile.isPremium,
           subscriptionStartedAt: subscriptionProfile.subscriptionStartedAt,
         });
       } catch (error) {
-        console.error("LifeNest subscription usage period sync failed", error);
+        if (!isAuthenticationRequiredError(error)) console.error("LifeNest subscription usage period sync failed", error);
       }
     };
 
@@ -263,7 +265,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     const currentlyPremium = isProEntitlementActive(customerInfo);
 
     if (wasPremiumRef.current && !currentlyPremium) {
-      Alert.alert(
+      showAlert(
         'Premium access ended',
         'Your premium access is no longer active. Premium categories and dashboard customisation are now unavailable.',
       );
@@ -279,10 +281,10 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       if (!hasIdentity) {
         throw new Error("REVENUECAT_AUTH_USER_MISSING");
       }
-      const { customerInfo: purchasedCustomerInfo } = await subscriptionService.purchasePackage(pkg);
-      setCustomerInfo(purchasedCustomerInfo);
+      const { customerInfo: info } = await subscriptionService.purchasePackage(pkg);
+      setCustomerInfo(info);
       await refreshVirtualCurrencies();
-      return purchasedCustomerInfo;
+      return info;
     },
     [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshVirtualCurrencies]
   );
@@ -293,31 +295,33 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     if (!hasIdentity) {
       throw new Error("REVENUECAT_AUTH_USER_MISSING");
     }
-    const restoredCustomerInfo = await subscriptionService.restorePurchases();
-    setCustomerInfo(restoredCustomerInfo);
+    const info = await subscriptionService.restorePurchases();
+    setCustomerInfo(info);
     await refreshVirtualCurrencies();
-    return restoredCustomerInfo;
+    return info;
   }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshVirtualCurrencies]);
+
+  const currentOffering = offerings?.current ?? null;
 
   const presentPaywall = useCallback(async () => {
     if (!isSupported || !isConfigured) return null;
     await ensureAuthenticatedRevenueCatIdentity();
-    const result = await subscriptionService.presentPaywall(offerings?.current ?? null);
+    const result = await subscriptionService.presentPaywall(currentOffering);
     if (subscriptionService.isSuccessfulPaywallResult(result)) {
       await Promise.all([refreshCustomerInfo(), refreshVirtualCurrencies()]);
     }
     return result;
-  }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshCustomerInfo, refreshVirtualCurrencies, offerings]);
+  }, [currentOffering, ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshCustomerInfo, refreshVirtualCurrencies]);
 
   const presentPaywallIfNeeded = useCallback(async () => {
     if (!isSupported || !isConfigured) return null;
     await ensureAuthenticatedRevenueCatIdentity();
-    const result = await subscriptionService.presentPaywallIfNeeded(offerings?.current ?? null);
+    const result = await subscriptionService.presentPaywallIfNeeded(currentOffering);
     if (subscriptionService.isSuccessfulPaywallResult(result)) {
       await Promise.all([refreshCustomerInfo(), refreshVirtualCurrencies()]);
     }
     return result;
-  }, [ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, offerings, refreshCustomerInfo, refreshVirtualCurrencies]);
+  }, [currentOffering, ensureAuthenticatedRevenueCatIdentity, isConfigured, isSupported, refreshCustomerInfo, refreshVirtualCurrencies]);
 
   const presentCustomerCenter = useCallback(async () => {
     if (!isSupported || !isConfigured) return;

@@ -1,60 +1,47 @@
+import { TrackedTouchableOpacity as TouchableOpacity } from '@/components/ui/TrackedTouchableOpacity';
 import React, { useMemo, useState } from 'react';
-import { Linking, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Switch } from '@/components/ui/Switch';
+import { REQUIRED_LEGAL_DOCUMENTS } from '@/constants/LegalDocuments';
+import type { LegalDocumentKey } from '@/constants/LegalDocuments';
 import { useThemeColour } from '@/hooks/useThemeColour';
-
-export type LegalDocumentKey = 'terms' | 'privacy' | 'lifenest';
-
-type ExternalLegalDocument = {
-  key: LegalDocumentKey;
-  shortTitle: string;
-  fallbackVersion: string;
-  url: string;
-};
 
 type LegalAcceptanceModalProps = {
   visible: boolean;
   loading?: boolean;
   versions: Record<LegalDocumentKey, string>;
-  onAccept: () => Promise<void> | void;
+  onAccept: (viewedAt: Record<LegalDocumentKey, string | null>) => Promise<void> | void;
 };
-
-const REQUIRED_ACCEPTANCE_LINKS: ExternalLegalDocument[] = [
-  {
-    key: 'terms',
-    shortTitle: 'Terms of Service',
-    fallbackVersion: 'v1',
-    url: 'https://www.example.com/terms-of-service',
-  },
-  {
-    key: 'privacy',
-    shortTitle: 'Privacy Policy',
-    fallbackVersion: 'v1',
-    url: 'https://www.example.com/privacy-policy',
-  },
-  {
-    key: 'lifenest',
-    shortTitle: 'LifeNest Terms',
-    fallbackVersion: 'v1',
-    url: 'https://www.example.com/terms-of-service',
-  },
-];
 
 /** Collects mandatory legal confirmations after authentication without returning users to onboarding. */
 export function LegalAcceptanceModal({ visible, loading = false, versions, onAccept }: LegalAcceptanceModalProps) {
+  const router = useRouter();
   const [accepted, setAccepted] = useState<Record<LegalDocumentKey, boolean>>({
     terms: false,
     privacy: false,
     lifenest: false,
   });
+  const [viewedAt, setViewedAt] = useState<Record<LegalDocumentKey, string | null>>({
+    terms: null,
+    privacy: null,
+    lifenest: null,
+  });
   const linkColor = useThemeColour({}, 'primary');
-  const canContinue = useMemo(() => REQUIRED_ACCEPTANCE_LINKS.every((document) => accepted[document.key]), [accepted]);
+  const canContinue = useMemo(
+    () => REQUIRED_LEGAL_DOCUMENTS.every((document) => Boolean(viewedAt[document.key]) && accepted[document.key]),
+    [accepted, viewedAt]
+  );
 
-  const openDocument = async (url: string) => {
-    await Linking.openURL(url);
+  const openDocument = (key: LegalDocumentKey, route: `/legal/${LegalDocumentKey}`) => {
+    setViewedAt((current) => ({
+      ...current,
+      [key]: current[key] ?? new Date().toISOString(),
+    }));
+    router.push(route as any);
   };
 
   return (
@@ -66,23 +53,24 @@ export function LegalAcceptanceModal({ visible, loading = false, versions, onAcc
             Please open and read each document, then tick the boxes to confirm you agree to the latest versions.
           </ThemedText>
           <ScrollView style={styles.scroll} contentContainerStyle={styles.documentList}>
-            {REQUIRED_ACCEPTANCE_LINKS.map((document) => (
+            {REQUIRED_LEGAL_DOCUMENTS.map((document) => (
               <View key={document.key} style={styles.documentRow}>
                 <Switch
                   label={`I have read and agree to the ${document.shortTitle}`}
-                  description={`Version ${versions[document.key] || document.fallbackVersion}`}
+                  description={`Version ${versions[document.key] || document.version}${viewedAt[document.key] ? '' : ' - open this document first'}`}
                   value={accepted[document.key]}
+                  disabled={!viewedAt[document.key]}
                   onValueChange={(value) => setAccepted((current) => ({ ...current, [document.key]: value }))}
                 />
-                <TouchableOpacity onPress={() => openDocument(document.url)} style={styles.linkButton}>
+                <TouchableOpacity analyticsId="components_legalacceptancemodal_link_button" analyticsControlType="link" onPress={() => openDocument(document.key, document.route)} style={styles.linkButton}>
                   <ThemedText style={[styles.linkText, { color: linkColor }]}>Open {document.shortTitle}</ThemedText>
                 </TouchableOpacity>
               </View>
             ))}
           </ScrollView>
-          <Button
+          <Button analyticsId="components_legalacceptancemodal_on_accept"
             title={loading ? 'Saving...' : 'Continue'}
-            onPress={onAccept}
+            onPress={() => onAccept(viewedAt)}
             loading={loading}
             disabled={!canContinue || loading}
             fullWidth

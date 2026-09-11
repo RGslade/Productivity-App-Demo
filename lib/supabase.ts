@@ -6,8 +6,13 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Backend environment configuration is missing.');
-  throw new Error('BACKEND_ENV_MISSING');
+  const missingKeys = [
+    !supabaseUrl ? 'EXPO_PUBLIC_SUPABASE_URL' : null,
+    !supabaseAnonKey ? 'EXPO_PUBLIC_SUPABASE_ANON_KEY' : null,
+  ].filter(Boolean).join(', ');
+
+  console.error(`Supabase environment configuration is missing: ${missingKeys}`);
+  throw new Error(`SUPABASE_ENV_MISSING:${missingKeys}`);
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -16,6 +21,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    flowType: 'pkce',
   },
 });
 
@@ -28,6 +34,16 @@ export async function getCurrentUser() {
     throw error;
   }
 };
+
+/** Validates the persisted access token with Supabase before protected hydration. */
+export async function validateSession() {
+  try {
+    return await supabase.auth.getUser();
+  } catch (error) {
+    console.error('supabase.validateSession', error);
+    throw error;
+  }
+}
 
 // Helper to get session
 export async function getSession() {

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Alert, Linking, StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
+import { showAlert } from '@/hooks/dataHandler';
 
 type RequiredUpdateGateProps = {
   currentVersion: string;
@@ -14,7 +15,7 @@ type RequiredUpdateGateProps = {
 export default function RequiredUpdateGate({ currentVersion, minimumVersion, storeUrl }: RequiredUpdateGateProps) {
   const handleOpenStore = async () => {
     if (!storeUrl) {
-      Alert.alert('Update link missing', 'Store URL is not configured yet. Please contact support.');
+      showAlert('Update link missing', 'Store URL is not configured yet. Please contact support.');
       return;
     }
 
@@ -22,7 +23,7 @@ export default function RequiredUpdateGate({ currentVersion, minimumVersion, sto
       await Linking.openURL(storeUrl);
     } catch (error) {
       console.error('RequiredUpdateGate.handleOpenStore', error);
-      Alert.alert('Unable to open store', 'Please try again in a moment.');
+      showAlert('Unable to open store', 'Please try again in a moment.');
     }
   };
 
@@ -35,7 +36,7 @@ export default function RequiredUpdateGate({ currentVersion, minimumVersion, sto
         </ThemedText>
         <ThemedText style={styles.meta}>Current version: {currentVersion}</ThemedText>
         <ThemedText style={styles.meta}>Minimum required: {minimumVersion || 'Not set'}</ThemedText>
-        <Button title="Update now" onPress={handleOpenStore} fullWidth style={styles.button} />
+        <Button analyticsId="components_requiredupdategate_update_now" title="Update now" onPress={handleOpenStore} fullWidth style={styles.button} />
       </ThemedView>
     </ThemedView>
   );

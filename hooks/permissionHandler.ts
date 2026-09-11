@@ -1,4 +1,5 @@
-import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
+import { showAlert } from '@/hooks/dataHandler';
 
 async function checkAndRequestAndroidPermissions() {
     if (Platform.OS === 'android' && Platform.Version >= 33) {
@@ -17,7 +18,7 @@ async function checkAndRequestAndroidPermissions() {
                 function openAppSettings() {
                     if (Platform.OS === 'android') {
                         Linking.openSettings().catch(() => {
-                            Alert.alert('Error', 'Unable to open app settings.');
+                            showAlert('Error', 'Unable to open app settings.');
                         });
                     }
                 }
