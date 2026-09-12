@@ -1,0 +1,61 @@
+project_id = "productivity-app-portfolio"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1:54321"
+
+[auth]
+enabled = true
+site_url = "productivityapp://auth/callback"
+additional_redirect_urls = [
+  "productivityapp://auth/callback",
+  "exp://127.0.0.1:8081/--/auth/callback",
+  "http://localhost:8081/--/auth/callback"
+]
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+inspector_port = 8083
+
+[functions.ad-config]
+verify_jwt = false
+
+[functions.billing-config]
+verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.housing-search]
+verify_jwt = false
+
+[functions.reed-job-details]
+verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.create-subscription-session]
+verify_jwt = true
